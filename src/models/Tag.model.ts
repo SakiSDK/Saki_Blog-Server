@@ -9,11 +9,12 @@ export interface TagAttributes {
     description?: string | null;
     order: number;
     post_count: number;
+    status: 'active' | 'inactive';
     created_at: Date;
     updated_at: Date;
 }
 
-interface TagCreationAttributes extends Optional<TagAttributes, 'id' | 'created_at' | 'updated_at'> { }
+interface TagCreationAttributes extends Optional<TagAttributes, 'id' | 'status' | 'created_at' | 'updated_at'> { }
 
 export class Tag extends Model<TagAttributes, TagCreationAttributes> implements TagAttributes { 
     public id!: number;
@@ -22,6 +23,7 @@ export class Tag extends Model<TagAttributes, TagCreationAttributes> implements 
     public description?: string | null;
     public order!: number;
     public post_count!: number;
+    public status!: 'active' | 'inactive';
     public readonly created_at!: Date;
     public updated_at!: Date;
 
@@ -63,7 +65,8 @@ Tag.init(
         id: {
             type: DataTypes.INTEGER,
             primaryKey: true,
-            autoIncrement: true
+            autoIncrement: true,
+            comment: '标签ID'
         },
         name: {
             type: DataTypes.STRING(50),
@@ -97,7 +100,14 @@ Tag.init(
         post_count: {
             type: DataTypes.INTEGER,
             allowNull: false,
-            defaultValue: 0
+            defaultValue: 0,
+            comment: '标签文章数',
+        },
+        status: {
+            type: DataTypes.ENUM('active', 'inactive'),
+            allowNull: false,
+            defaultValue: 'active',
+            comment: '标签状态',
         },
         created_at: {
             type: DataTypes.DATE,

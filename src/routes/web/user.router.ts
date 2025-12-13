@@ -20,4 +20,8 @@ router.post(
 // 重置头像
 router.post('/reset-avatar/:shortId', authenticateToken, UserController.resetAvatar);
 
+// 获取用户基本信息
+router.get('/:shortId', authenticateToken, UserController.getUserById);
+
+
 export default router;

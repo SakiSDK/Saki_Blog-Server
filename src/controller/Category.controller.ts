@@ -79,45 +79,45 @@ export class CategoryController {
      * @returns 无返回值，通过res发送JSON响应
      * @description 接收分页参数，调用CategoryService获取分类列表，返回列表数据（当前data字段待完善）
      */
-    public static async getWebCategoryList(req: Request, res: Response): Promise<void> {
-        try {
-            // 验证查询参数
-            const { error, value } = getWebCategoryListSchema.validate(req.query);
-            if (error) throw new BadRequestError(error.message || '请求参数有误或格式错误');
+    // public static async getWebCategoryList(req: Request, res: Response): Promise<void> {
+    //     try {
+    //         // 验证查询参数
+    //         const { error, value } = getWebCategoryListSchema.validate(req.query);
+    //         if (error) throw new BadRequestError(error.message || '请求参数有误或格式错误');
             
-            // 调用服务层获取分类列表
-            const { categories, total, page, pageSize, totalPages } = await CategoryService.getCategoryList({
-                page: Number(value.page),
-                limit: Number(value.limit),
-            });
+    //         // 调用服务层获取分类列表
+    //         const { categories, total, page, pageSize, totalPages } = await CategoryService.getCategoryList({
+    //             page: Number(value.page),
+    //             limit: Number(value.limit),
+    //         });
 
-            // 返回格式化结果
-            res.status(200).json({
-                message: '获取分类字段列表成功',
-                data: categories.map((category) => {
-                    const cg = category.get({ plain: true })
-                    const cleanCategory = {
-                        id: cg.id,
-                        name: cg.name,
-                        description: cg.description,
-                        order: cg.order,
-                        postCount: cg.post_count,
-                    }
-                    return camelcaseKeys( cleanCategory, { deep: true } )
-                }),
-                pagination: {
-                    total,
-                    page,
-                    pageSize,
-                    totalPages
-                }
-            })
-        }catch (error: any) {
-            res.status(error.status || 500).json({
-                message: error.message || '获取分类字段列表失败',
-            });
-        }
-    }
+    //         // 返回格式化结果
+    //         res.status(200).json({
+    //             message: '获取分类字段列表成功',
+    //             data: categories.map((category) => {
+    //                 const cg = category.get({ plain: true })
+    //                 const cleanCategory = {
+    //                     id: cg.id,
+    //                     name: cg.name,
+    //                     description: cg.description,
+    //                     order: cg.order,
+    //                     postCount: cg.post_count,
+    //                 }
+    //                 return camelcaseKeys( cleanCategory, { deep: true } )
+    //             }),
+    //             pagination: {
+    //                 total,
+    //                 page,
+    //                 pageSize,
+    //                 totalPages
+    //             }
+    //         })
+    //     }catch (error: any) {
+    //         res.status(error.status || 500).json({
+    //             message: error.message || '获取分类字段列表失败',
+    //         });
+    //     }
+    // }
     
     /**
      * 获取管理员端分类列表
@@ -126,44 +126,43 @@ export class CategoryController {
      * @returns 无返回值，通过res发送JSON响应
      * @description 支持多条件筛选（id, name等）、分页和排序，调用服务层获取数据后返回格式化结果
      */
-    public static async getAdminCategoryList(req: Request, res: Response): Promise<void> {
-        try {
-            // 验证查询参数
-            const { error, value } = getAdminCategoryListSchema.validate(req.query);
-            if (error) {
-                throw new BadRequestError(error.message);
-            }
+    // public static async getAdminCategoryList(req: Request, res: Response): Promise<void> {
+    //     try {
+    //         // 验证查询参数
+    //         const { error, value } = getAdminCategoryListSchema.validate(req.query);
+    //         if (error) {
+    //             throw new BadRequestError(error.message);
+    //         }
 
-            // 调用服务层获取分类列表
-            const {
-                categories,
-                total,
-                page,
-                pageSize,
-                totalPages
-            } = await CategoryService.getCategoryList(value);
+    //         // 调用服务层获取分类列表
+    //         const {
+    //             categories,
+    //             total,
+    //             page,
+    //             pageSize,
+    //             totalPages
+    //         } = await CategoryService.getCategoryList(value);
 
-            // 返回格式化结果
-            res.status(200).json({
-                message: '获取分类字段列表成功',
-                data: categories.map(
-                    category => camelcaseKeys(category.get({plain: true}), { deep: true })
-                ),
-                pagination: {
-                    page,
-                    pageSize,
-                    total,
-                    totalPages
-                }
-            });
-        } catch (error: any) {
-            console.error(error)
-            res.status(error.status || 500).json({
-                message: error.message || '获取分类字段列表失败',
-            }); 
-        }
-
-    }
+    //         // 返回格式化结果
+    //         res.status(200).json({
+    //             message: '获取分类字段列表成功',
+    //             data: categories.map(
+    //                 category => camelcaseKeys(category.get({plain: true}), { deep: true })
+    //             ),
+    //             pagination: {
+    //                 page,
+    //                 pageSize,
+    //                 total,
+    //                 totalPages
+    //             }
+    //         });
+    //     } catch (error: any) {
+    //         console.error(error)
+    //         res.status(error.status || 500).json({
+    //             message: error.message || '获取分类字段列表失败',
+    //         }); 
+    //     }
+    // }
 
     /**
      * 更新分类

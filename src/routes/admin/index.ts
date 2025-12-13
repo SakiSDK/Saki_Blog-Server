@@ -1,29 +1,29 @@
 import { Router } from "express";
-import UserAdminRoute from './user.router'
-import AmapAdminRoute from './amap.router'
-import TagAdminRoute from "./tag.router";
-import AlbumAdminRoute from "./album.router";
-import PhotoAdminRoute from './photo.router'
-import CategoryAdminRoute from "./category.router";
-import PostAdminRoute from "./post.router";
-import AuthAdminRoute from "./auth.router";
-import { authenticateToken, requireRole } from "../../middlewares/auth";
+// import UserAdminRoute from './user.router'
+// import AmapAdminRoute from './amap.router'
+import TagRoute from "./tag.router";
+// import AlbumAdminRoute from "./album.router";
+// import PhotoAdminRoute from './photo.router'
+// import CategoryAdminRoute from "./category.router";
+// import PostAdminRoute from "./post.router";
+// import AuthAdminRoute from "./auth.router";
+// import { authenticateToken, requireRole } from "../../middlewares/auth";
 
 const router: Router = Router();
 
-// 
-router.use('/auth', AuthAdminRoute)
+// // 
+// router.use('/auth', AuthAdminRoute)
 
-// 全局中间件：所有子路由都需要先认证 + 角色必须是admin
-router.use(authenticateToken);
-router.use(requireRole(['admin']));
+// // 全局中间件：所有子路由都需要先认证 + 角色必须是admin
+// router.use(authenticateToken);
+// router.use(requireRole(['admin']));
 
-router.use('/user', UserAdminRoute)
-router.use('/amap', AmapAdminRoute)
-router.use('/album', AlbumAdminRoute)
-router.use('/photo', PhotoAdminRoute)
-router.use('/tag', TagAdminRoute) 
-router.use('/category', CategoryAdminRoute)
-router.use('/post', PostAdminRoute)
+// router.use('/user', UserAdminRoute)
+// router.use('/amap', AmapAdminRoute)
+// router.use('/album', AlbumAdminRoute)
+// router.use('/photo', PhotoAdminRoute)
+router.use('/tag', TagRoute) 
+// router.use('/category', CategoryAdminRoute)
+// router.use('/post', PostAdminRoute)
 
 export default router;

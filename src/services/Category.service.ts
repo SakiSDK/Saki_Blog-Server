@@ -1,6 +1,7 @@
 import { BadRequestError, NotFoundError } from "../utils/errors";
 import { Op, Transaction } from "sequelize";
 import { sequelize, Category, PostCategory } from "../models/index";
+import type { Pagination } from "../types/app";
 
 /**
  * 分类创建输入数据接口，定义创建分类时所需的字段
@@ -96,10 +97,7 @@ export class CategoryService {
      */
     public static async getCategoryList(query: any): Promise<{
         categories: Category[],
-        total: number
-        page: number,
-        pageSize: number,
-        totalPages: number,
+        pagination: Pagination
     }> { 
         // 处理默认参数
         const {
@@ -131,19 +129,21 @@ export class CategoryService {
         if (slug) {
             whereConditions.slug = slug;
         }
-        const categories = await Category.findAndCountAll({
+        const { count, rows } = await Category.findAndCountAll({
             where: whereConditions,
             offset,
             limit,
             order: [[order_by, sort]],
-            raw: false,
+            raw: true,
         });
         return {
-            categories: categories.rows,
-            total: categories.count,
-            page: page,
-            pageSize: limit,
-            totalPages: Math.ceil(categories.count / limit),
+            categories: rows,
+            pagination: {
+                page: page,
+                pageSize: limit,
+                total: count,
+                totalPages: Math.ceil(count / limit),
+            }
         };
     }
 
