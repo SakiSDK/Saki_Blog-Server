@@ -199,4 +199,40 @@ export class TagController {
     });
     }
   }
+
+  /**
+   * 更新标签
+   */
+  public static async updateTag(req: Request, res: Response) {
+    try {
+      const tagId = Number(req.params.id);
+      const { name, description, status, order } = req.body;
+      // 调用服务层执行更新
+      const updatedTag = await TagService.updateTag(tagId, { name, description, status, order });
+      res.status(200).json({
+        code: 200,
+        success: true,
+        message: "标签更新成功",
+        data: camelcaseKeys(
+          updatedTag.get({plain: true}),
+          { deep: true }
+        ),
+      })
+    }catch (error) {
+      console.error('更新标签失败：', error);
+      if (error instanceof Error) {
+        res.status(500).json({
+          code: 500,
+          success: false,
+          message: error.message || '更新标签失败',
+          data: null,
+        });
+      }
+      res.status(500).json({
+        code: 500,
+        success: false,
+        message: '服务器内部错误',
+      })
+    }
+  }
 }

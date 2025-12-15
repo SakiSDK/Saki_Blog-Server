@@ -28,10 +28,37 @@ export const TagDeleteParamsSchema = z.object({
   id: zId.describe("标签ID"),
 })
 export const TagBulkDeleteQuerySchema = z.object({
-  ids: z.array(zId).describe("标签ID列表"),
+  ids: z
+    .union([zId, z.array(zId)])
+    .transform((val) => Array.isArray(val) ? val : [val])
+    .describe("标签ID列表"),
+})
+export const TagUpdateParamasSchema = z.object({
+  id: zId.describe("标签ID"),
 })
 
+
 export const TagCreateBodySchema = z.object({
+  name: zStr
+    .max(50, { message: '标签名称不能超过50个字符' })
+    .trim()
+    .nonempty({ message: '标签名称不能为空' }),
+  description: z
+    .string('必须是文本')
+    .trim()
+    .max(50, { message: '标签描述不能超过50个字符' })
+    .or(z.literal(""))
+    .nullable()
+    .optional(),
+  order: z.number()
+    .int()
+    .min(0, { message: '排序值不能小于0' })
+    .max(999, { message: '排序值不能大于999' })
+    .default(0)
+    .optional(),
+  status: z.enum(['active', 'inactive'] as const),
+})
+export const TagUpdataBodySchema = z.object({
   name: zStr
     .max(50, { message: '标签名称不能超过50个字符' })
     .trim()
@@ -58,3 +85,5 @@ export type TagStatusParams = z.infer<typeof TagStatusParamsSchema>;
 export type TagCreateBody = z.infer<typeof TagCreateBodySchema>;
 export type TagDeleteParams = z.infer<typeof TagDeleteParamsSchema>;
 export type TagBulkDeleteQuery = z.infer<typeof TagBulkDeleteQuerySchema>;
+export type TagUpdateParamas = z.infer<typeof TagUpdateParamasSchema>;
+export type TagUpdataBody = z.infer<typeof TagUpdataBodySchema>;

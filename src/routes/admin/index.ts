@@ -21,7 +21,7 @@ const router: Router = Router();
 // router.use('/user', UserAdminRoute)
 // router.use('/amap', AmapAdminRoute)
 // router.use('/album', AlbumAdminRoute)
-// router.use('/photo', PhotoAdminRoute)
+// router.use('/photo', Ph阿萨斯撒网闻所未闻哇哇哇哇
 router.use('/tag', TagRoute) 
 // router.use('/category', CategoryAdminRoute)
 // router.use('/post', PostAdminRoute)

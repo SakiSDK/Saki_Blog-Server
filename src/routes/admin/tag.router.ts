@@ -5,8 +5,9 @@ import {
   zodValidate
 } from '../../middlewares/zodValidate'
 import {
-  TagBulkDeleteQuerySchema,
-  TagCreateBodySchema, TagListQuerySchema, TagStatusParamsSchema
+  TagBulkDeleteQuerySchema, TagListQuerySchema,
+  TagDeleteParamsSchema, TagStatusParamsSchema, TagUpdateParamasSchema,
+  TagUpdataBodySchema, TagCreateBodySchema,
 } from '../../schemas/admin/tag.schema';
 import {
   TagController
@@ -38,18 +39,26 @@ router.post(
   TagController.createTag
 )
 router.delete(
-  '/:id',
-  zodValidate({
-    params: TagStatusParamsSchema
-  }),
-  TagController.deleteTag
-)
-router.delete(
   '/bulk',
   zodValidate({
     query: TagBulkDeleteQuerySchema
   }),
   TagController.bulkDeleteTag
+)
+router.delete(
+  '/:id',
+  zodValidate({
+    params: TagDeleteParamsSchema
+  }),
+  TagController.deleteTag
+)
+router.put(
+  '/:id',
+  zodValidate({
+    params: TagUpdateParamasSchema,
+    body: TagUpdataBodySchema
+  }),
+  TagController.updateTag
 )
 
 export default router;  
