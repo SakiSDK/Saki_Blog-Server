@@ -9,6 +9,18 @@ import { HotTagParams } from '../schemas/web/tag.schema';
 import { TagCreateBody, TagListQuery } from '../schemas/admin/tag.schema';
 
 export class TagService {
+  /** 
+   * 获取所有标签
+   */
+  public static async getAllTags(): Promise<Tag[]> {
+    return Tag.findAll({
+      attributes: ['id', 'name'],
+      where: {
+        status: 'active'
+      },
+      order:[['order', 'DDESC']]
+    });
+  }
   /**
    * 创建标签（自动生成slug，确保name/slug唯一）
    * @param data      标签创建数据
@@ -22,7 +34,7 @@ export class TagService {
     if (data.name.length > 50) {
       throw new BadRequestError('标签名称长度不能超过50个字符');
     }
-    //* 生成唯一slug
+    // 生成唯一slug
     const rawSlug = Tag.generateSlug(data.name);
     if (!rawSlug) {
       throw new BadRequestError('无法生成有效的标签别名，请检查名称');
@@ -149,21 +161,29 @@ export class TagService {
   }> {
     // 处理默认参数
     const {
-      page = 1,
-      pageSize = 10,
+      id,
+      status,
       keyword,
       // 时间参数
       createdFrom,
       createdTo,
-      createdRange,
       // 排序参数
       orderBy = 'created_at',
-      sort = 'DESC'
+      sort = 'desc',
+      page = 1,
+      pageSize = 10,
     } = query;
     const offset = (page - 1) * pageSize;
     
+    console.log(createdFrom, createdTo)
     // 构建筛选条件
     const whereConditions: any = {};
+    if (id) {
+      whereConditions.id = Number(id);
+    }
+    if (status) {
+      whereConditions.status = status;
+    }
     /** ---------- keyword 搜索 ---------- */
     if (keyword?.trim()) {
       const kw = keyword.trim();
@@ -173,7 +193,7 @@ export class TagService {
       ];
     }
     /** ---------- 时间参数 ---------- */
-    if (createdFrom || createdTo || Array.isArray(createdRange)) {
+    if (createdFrom || createdTo) {
       whereConditions.created_at = {};
 
       // >= 某时间
@@ -185,19 +205,13 @@ export class TagService {
       if (createdTo) {
         whereConditions.created_at[Op.lte] = new Date(createdTo);
       }
-
-      // between
-      if (Array.isArray(createdRange) && createdRange.length === 2) {
-        whereConditions.created_at[Op.between] = [
-          new Date(createdRange[0]),
-          new Date(createdRange[1]),
-        ];
-      }
     }
+
+    console.log(whereConditions)
     // 执行分页查询
     const { count, rows } = await Tag.findAndCountAll({
       where: whereConditions,
-      order: [[orderBy, sort]],
+      order: [[orderBy, sort.toUpperCase()]],
       offset,
       limit: pageSize,
       raw: true

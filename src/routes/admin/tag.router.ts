@@ -24,6 +24,17 @@ router.get(
   }),
   TagController.getTagList
 );
+router.get(
+  '/all',
+  TagController.getAllTags
+)
+router.get(
+  '/search',
+  zodValidate({
+    query: TagListQuerySchema
+  }),
+  TagController.searchTag
+)
 router.patch(
   '/:id/status',
   zodValidate({
