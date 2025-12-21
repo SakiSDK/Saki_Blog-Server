@@ -3,7 +3,10 @@ import { Pagination } from '../app';
 export type { CategoryListParams } from '../../schemas/web/category.schema';
 
 // 定义返回的Category类型
-export type CategoryListItem = Pick<Category, 'id' | 'name' | 'description' | 'post_count' | 'created_at'>
+export type CategoryListItem = Pick<
+  Category,
+  'id' | 'name' | 'description' | 'post_count' | 'order' | 'status' | 'created_at' | 'updated_at'
+>
 
 
 // 定义出参类型

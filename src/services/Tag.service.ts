@@ -18,7 +18,7 @@ export class TagService {
       where: {
         status: 'active'
       },
-      order:[['order', 'DDESC']]
+      order:[['order', 'DESC']]
     });
   }
   /**
@@ -175,7 +175,6 @@ export class TagService {
     } = query;
     const offset = (page - 1) * pageSize;
     
-    console.log(createdFrom, createdTo)
     // 构建筛选条件
     const whereConditions: any = {};
     if (id) {
@@ -207,7 +206,6 @@ export class TagService {
       }
     }
 
-    console.log(whereConditions)
     // 执行分页查询
     const { count, rows } = await Tag.findAndCountAll({
       where: whereConditions,
@@ -254,13 +252,23 @@ export class TagService {
    * 切换标签状态
    */
   public static async toggleTagStatus(tagId: number): Promise<Tag> {
-    const tag = await Tag.findByPk(tagId);
-    if (!tag) {
-      throw new NotFoundError('标签不存在');
+    const transaction = await sequelize?.transaction({
+      isolationLevel: Transaction.ISOLATION_LEVELS.READ_COMMITTED
+    });
+    try {
+      const tag = await Tag.findByPk(tagId, { transaction });
+      if (!tag) {
+        throw new NotFoundError('标签不存在');
+      }
+      //* 切换标签状态
+      const newStatus = tag.status === 'active' ? 'inactive' : 'active';
+      await tag.update({ status: newStatus }, { transaction });
+      transaction.commit();
+      return tag;
+    } catch (error) {
+      transaction.rollback();
+      throw error;
     }
-    tag.status = tag.status === 'active' ? 'inactive' : 'active';
-    await tag.save();
-    return tag;
   }
 
   /**
@@ -279,7 +287,9 @@ export class TagService {
       // 删除标签
       const deletedCount = await Tag.destroy({
         where: {
-          id: tagIds
+          id: {
+            [Op.in]: tagIds
+          }
         },
         transaction
       });

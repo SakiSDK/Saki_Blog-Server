@@ -2,6 +2,7 @@ import { Router } from "express";
 // import UserAdminRoute from './user.router'
 // import AmapAdminRoute from './amap.router'
 import TagRoute from "./tag.router";
+import CategoryRoute from "./category.router";
 // import AlbumAdminRoute from "./album.router";
 // import PhotoAdminRoute from './photo.router'
 // import CategoryAdminRoute from "./category.router";
@@ -23,7 +24,7 @@ const router: Router = Router();
 // router.use('/album', AlbumAdminRoute)
 // router.use('/photo', Ph阿萨斯撒网闻所未闻哇哇哇哇
 router.use('/tag', TagRoute) 
-// router.use('/category', CategoryAdminRoute)
+router.use('/category', CategoryRoute)
 // router.use('/post', PostAdminRoute)
 
 export default router;

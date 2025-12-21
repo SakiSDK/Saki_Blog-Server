@@ -11,11 +11,12 @@ export interface CategoryAttributes {
     description?: string | null;   // 分类描述
     order: number;          // 排序
     post_count: number;     // 分类下的文章数
+    status: 'active' | 'inactive'; // 状态
     created_at: Date;       // 创建时间
     updated_at: Date;       // 更新时间
 }
 
-interface CategoryCreationAttributes extends Optional<CategoryAttributes, 'id' | 'post_count' | 'created_at' | 'updated_at'> { }
+interface CategoryCreationAttributes extends Optional<CategoryAttributes, 'id' | 'status' | 'post_count' | 'created_at' | 'updated_at'> { }
 
 export class Category extends Model<CategoryAttributes, CategoryCreationAttributes> implements CategoryAttributes {
     public id!: number;
@@ -25,6 +26,7 @@ export class Category extends Model<CategoryAttributes, CategoryCreationAttribut
     public description?: string | null;
     public order!: number;
     public post_count!: number;
+    public status!: 'active' | 'inactive'; // 状态
     public readonly created_at!: Date;
     public updated_at!: Date;
 
@@ -109,6 +111,12 @@ Category.init(
             validate: {
                 min: 0
             }
+        },
+        status: {
+            type: DataTypes.ENUM('active', 'inactive'),
+            allowNull: false,
+            defaultValue: 'active',
+            comment: '分类状态'
         },
         created_at: {
             type: DataTypes.DATE,

@@ -2,7 +2,10 @@ import { Tag } from "../../models/Tag.model";
 import type { Pagination } from "../app";
 
 // 定义返回的Tag类型
-export type TagListItem = Pick<Tag, 'id' | 'name' | 'description' | 'post_count' | 'created_at'>
+export type TagListItem = Pick<
+  Tag,
+  'id' | 'name' | 'description' | 'post_count' | 'order' | 'status' | 'created_at' | 'updated_at'
+>
 
 // 定义出参类型
 export type TagListResult = {

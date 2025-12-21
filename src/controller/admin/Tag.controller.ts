@@ -2,23 +2,25 @@ import { TagService } from "../../services/Tag.service";
 import { Request, Response } from "express";
 import type { TagListResult } from "../../types/models/tag.type";
 import camelcaseKeys from "camelcase-keys";
-import type { TagListQuery } from '../../schemas/web/tag.schema';
 
 
 export class TagController { 
   public static async getAllTags(req: Request, res: Response) {
     try {
+      console.log('获取所有标签');
       const tags = await TagService.getAllTags();
       res.status(200).json({
         code: 200,
         success: true,
         message: "获取所有标签成功",
-        data: tags.map((tag) => {
-          return camelcaseKeys(
-            tag.get({ plain: true }),
-            { deep: true }
-          );
-        })
+        data: {
+          list: tags.map((tag) => {
+            return camelcaseKeys(
+              tag.get({ plain: true }),
+              { deep: true }
+            );
+          })
+        }
       });
     } catch (error) {
       console.log('获取所有标签失败：', error);
@@ -135,7 +137,7 @@ export class TagController {
     try {
       const {
         keyword, id, status,
-        timeRange, startTime, endTime,
+        startTime, endTime,
         page, pageSize, sort, orderBy,
       } = req.query;
       // 类型转换并设置默认值
@@ -152,11 +154,11 @@ export class TagController {
         sort:
           ['asc', 'desc'].includes(sort as string)
             ? (sort as "asc" | "desc")
-            : undefined,
+            : "desc",
         orderBy:
           ['id', 'order', 'post_count', 'created_at', 'updated_at'].includes(orderBy as string)
             ? (orderBy as 'id' | 'order' | 'post_count' | 'created_at' | 'updated_at') // 明确断言
-            : undefined
+            : "created_at"
       }
 
       // 2. 调用服务层获取数据（类型安全约束）
@@ -258,24 +260,24 @@ export class TagController {
         data: null,
       });
     } catch (error) {
-    console.error('删除标签失败：', error);
+      console.error('删除标签失败：', error);
 
-    // 业务错误
-    if (error instanceof Error) {
+      // 业务错误
+      if (error instanceof Error) {
+        res.status(500).json({
+          code: 500,
+          success: false,
+          message: error.message || '删除标签失败',
+          data: null,
+        });
+      }
+      // 未知错误兜底
       res.status(500).json({
         code: 500,
         success: false,
-        message: error.message || '删除标签失败',
+        message: '服务器内部错误',
         data: null,
       });
-    }
-    // 未知错误兜底
-    res.status(500).json({
-      code: 500,
-      success: false,
-      message: '服务器内部错误',
-      data: null,
-    });
     }
   }
 

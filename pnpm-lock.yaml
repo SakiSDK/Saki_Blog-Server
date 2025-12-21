@@ -150,9 +150,6 @@ importers:
       '@types/nodemailer':
         specifier: ^7.0.3
         version: 7.0.3
-      express-session=:
-        specifier: link:@types/express-session=
-        version: link:@types/express-session=
 
 packages:
 
