@@ -6,8 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node dist/app.js",
-    "dev": "nodemon --exec ts-node src/app.ts",
-    "build": "tsc",
+    "dev": "nodemon --exec \"ts-node -r tsconfig-paths/register\" src/app.ts",
+    "build": "tsc && tsc-alias",
     "build:watch": "tsc -w",
     "clean": "rimraf dist"
   },
@@ -64,6 +64,8 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/morgan": "^1.9.10",
     "@types/multer": "^2.0.0",
-    "@types/nodemailer": "^7.0.3"
+    "@types/nodemailer": "^7.0.3",
+    "tsc-alias": "^1.8.16",
+    "tsconfig-paths": "^4.2.0"
   }
 }

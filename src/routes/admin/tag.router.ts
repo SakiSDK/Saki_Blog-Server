@@ -3,15 +3,15 @@ import {
 } from "express";
 import {
   zodValidate
-} from '../../middlewares/zodValidate'
+} from '@/middlewares/zodValidate'
 import {
   TagBulkDeleteQuerySchema, TagListQuerySchema,
   TagDeleteParamsSchema, TagStatusParamsSchema, TagUpdateParamasSchema,
   TagUpdataBodySchema, TagCreateBodySchema,
-} from '../../schemas/admin/tag.schema';
+} from '@/schemas/admin/tag.schema';
 import {
   TagController
-} from '../../controller/admin/Tag.controller';
+} from '@/controller/admin/Tag.controller';
 
 
 const router: Router = Router();

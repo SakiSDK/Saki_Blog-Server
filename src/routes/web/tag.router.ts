@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { HotTagParamsSchema, TagListParamsSchema } from '../../schemas/web/tag.schema'
-import { TagController } from "../../controller/web/Tag.controller";
-import { zodValidate } from '../../middlewares/zodValidate'
+import { HotTagParamsSchema, TagListParamsSchema } from '@/schemas/web/tag.schema'
+import { TagController } from "@/controller/web/Tag.controller";
+import { zodValidate } from '@/middlewares/zodValidate'
 
 
 const router: Router = Router();

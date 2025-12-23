@@ -2,6 +2,7 @@ import { BadRequestError, NotFoundError } from "../utils/errors";
 import { Op, Transaction } from "sequelize";
 import { sequelize, Category, PostCategory } from "../models/index";
 import type { Pagination } from "../types/app";
+import { CategoryListQuery } from '@/schemas/admin/category.schema';
 
 /**
  * 分类创建输入数据接口，定义创建分类时所需的字段
@@ -145,7 +146,7 @@ export class CategoryService {
    * @returns 分类列表及分页信息（分类数组、总数、当前页、每页条数、总页数）
    * @description 处理默认参数，构建查询条件，通过分页和排序查询分类列表
    */
-  public static async getCategoryList(query: any): Promise<{
+  public static async getCategoryList(query: CategoryListQuery): Promise<{
     categories: Category[],
     pagination: Pagination
   }> {
@@ -153,8 +154,8 @@ export class CategoryService {
     const {
       // 基础筛选条件
       id,
-      name,
       keyword,
+      status,
       // 时间参数
       createdFrom,
       createdTo,
@@ -166,20 +167,23 @@ export class CategoryService {
       sort = 'desc',
     } = query;
     const offset: number = (page - 1) * pageSize;
+    console.log("keyword:", keyword);
 
     // 构建筛选条件
     const whereConditions: any = {};
     if (id) {
       whereConditions.id = Number(id);
     }
-    if (name) {
-      whereConditions.name = { [Op.like]: `%${name}%` };
-    }
-    if (keyword) {
+    /** ---------- keyword 搜索 ---------- */
+    if (keyword?.trim()) {
+      const kw = keyword.trim();
       whereConditions[Op.or] = [
-        { name: { [Op.like]: `%${keyword}%` } },
-        { description: { [Op.like]: `%${keyword}%` } },
+        { name: { [Op.like]: `%${kw}%` } },
+        { description: { [Op.like]: `%${kw}%` } }
       ];
+    }
+    if (status) {
+      whereConditions.status = status;
     }
     if (createdFrom) {
       whereConditions.created_at = {

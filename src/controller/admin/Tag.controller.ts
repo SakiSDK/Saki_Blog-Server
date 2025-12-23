@@ -1,6 +1,6 @@
-import { TagService } from "../../services/Tag.service";
+import { TagService } from "@/services/Tag.service";
 import { Request, Response } from "express";
-import type { TagListResult } from "../../types/models/tag.type";
+import type { TagListResult } from "@/types/models/tag.type";
 import camelcaseKeys from "camelcase-keys";
 
 
@@ -91,7 +91,6 @@ export class TagController {
             ? (orderBy as 'id' | 'order' | 'post_count' | 'created_at' | 'updated_at') // 明确断言
             : undefined
       }
-      const offset: number = (pageNum - 1) * size;
       const searchResult = await TagService.getTagList(query);
       const { tags, pagination } = searchResult;
       res.status(200).json({

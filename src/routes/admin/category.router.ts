@@ -1,11 +1,11 @@
 import { Router } from 'express';
-import {CategoryController} from '../../controller/admin/Category.controller';
+import {CategoryController} from '@/controller/admin/Category.controller';
 import { zodValidate } from '@/middlewares/zodValidate';
 import {
   CategoryBulkDeleteQuerySchema, CategoryListQuerySchema,
   CategoryCreateBodySchema,
   CategoryStatusParamsSchema
-} from '../../schemas/admin/category.schema';
+} from '@/schemas/admin/category.schema';
 import { TagDeleteParamsSchema } from '@/schemas/admin/tag.schema';
 
 
@@ -47,18 +47,25 @@ router.put(
   CategoryController.updateCategory
 );
 router.delete(
+  '/bulk',
+  zodValidate({
+    query: CategoryBulkDeleteQuerySchema
+  }),
+  CategoryController.bulkDeleteCategory
+);
+router.delete(
   '/:id',
   zodValidate({
     params: TagDeleteParamsSchema
   }),
   CategoryController.deleteCategory
 );
-router.delete(
-  '/bulk',
+router.get(
+  '/search',
   zodValidate({
-    query: CategoryBulkDeleteQuerySchema
+    query: CategoryListQuerySchema
   }),
-  CategoryController.bulkDeleteCategory
+  CategoryController.getCategoryList,
 );
 
 

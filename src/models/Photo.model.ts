@@ -1,14 +1,13 @@
 import { DataTypes, Model, Optional } from "sequelize";
 import { sequelize } from './sequelize'
-import { Album } from "./Album.model";
 
 export interface PhotoAttributes {
     id: number;           // 图片ID
     album_id: number;     // 相册ID
     title?: string | null;      
     description?: string | null;
-    image_path: string;
-    thumbnail_path?: string | null;
+    image_url: string;
+    thumbnail_url?: string | null;
     size: number;
     width: number;
     height: number;
@@ -26,8 +25,8 @@ export class Photo extends Model<PhotoAttributes, PhotoCreationAttributes> imple
     public album_id!: number;
     public title?: string | null;
     public description?: string | null;
-    public image_path!: string;
-    public thumbnail_path?: string | null;
+    public image_url!: string;
+    public thumbnail_url?: string | null;
     public size!: number;
     public width!: number;
     public height!: number;
@@ -64,7 +63,8 @@ Photo.init({
                 args: [1],
                 msg: '相册ID不能小于1'
             }
-        }
+        },
+        comment: '相册ID'
     },
     title: {
         type: DataTypes.STRING(255),
@@ -75,7 +75,8 @@ Photo.init({
                 args: [0, 255],
                 msg: '标题长度不能超过255个字符'
             }
-        }
+        },
+        comment: '相册标题'
     },
     description: {
         type: DataTypes.TEXT,
@@ -87,8 +88,9 @@ Photo.init({
                 msg: '描述长度不能超过1000个字符'
             }
         },
+        comment: '相册描述',
     },
-    image_path: {
+    image_url: {
         type: DataTypes.STRING(500),
         allowNull: false,
         validate: {
@@ -99,9 +101,10 @@ Photo.init({
                 args: [0, 500],
                 msg: '图片URL长度不能超过500个字符'
             }
-        }
+        },
+        comment: '图片URL',
     },
-    thumbnail_path: {
+    thumbnail_url: {
         type: DataTypes.STRING(500),
         allowNull: false,
         defaultValue: '',
@@ -110,7 +113,8 @@ Photo.init({
                 args: [0, 500],
                 msg: '缩略图URL长度不能超过500个字符'
             }
-        }
+        },
+        comment: '缩略图URL',
     },
     size: {
         type: DataTypes.BIGINT.UNSIGNED,

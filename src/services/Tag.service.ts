@@ -1,12 +1,12 @@
-import { PostTag } from '../models/PostTag.model';
-import { sequelize } from '../models/index';
-import { Tag } from '../models/Tag.model'
-import { BadRequestError, NotFoundError } from '../utils/errors'
+import { PostTag } from '@/models/PostTag.model';
+import { sequelize } from '@/models/index';
+import { Tag } from '@/models/Tag.model'
+import { BadRequestError, NotFoundError } from '@/utils/errors'
 import { Op, Transaction } from 'sequelize'
-import type { Pagination } from '../types/app';
-import { HotTagResult } from '../types/models/tag.type';
-import { HotTagParams } from '../schemas/web/tag.schema';
-import { TagCreateBody, TagListQuery } from '../schemas/admin/tag.schema';
+import type { Pagination } from '@/types/app';
+import { HotTagResult } from '@/types/models/tag.type';
+import { HotTagParams } from '@/schemas/web/tag.schema';
+import { TagCreateBody, TagListQuery } from '@/schemas/admin/tag.schema';
 
 export class TagService {
   /** 

@@ -2,7 +2,7 @@ import Redis from 'ioredis'
 import { config } from '../config'
 import { Store, SessionData } from 'express-session';
 
-
+console.log('DEBUG: Initializing Redis...');
 /** ---------- redis实例 ---------- */
 export const redisClient = new Redis({
     host: config.redis.host,            // Redis服务器地址
@@ -41,10 +41,10 @@ export class RedisSessionStore extends Store {
     set(sid: string, session: SessionData, callback: (err?: Error | null) => void): void {
         const key = this.keyPrefix + sid;
         // 👇 加日志：验证存储时是否有 googleAuthState（关键！）
-        console.log('📥 存储 Session - sid:', sid, '数据:', {
-            googleAuthState: session.googleAuthState,
-            cookie: session.cookie
-        });
+        // console.log('📥 存储 Session - sid:', sid, '数据:', {
+        //     googleAuthState: session.googleAuthState,
+        //     cookie: session.cookie
+        // });
         // 序列化时确保所有字段都被保存（包括自定义的 googleAuthState）
         const sessionStr = JSON.stringify({
             ...session, // 展开所有 session 字段（包括自定义的）
@@ -75,10 +75,10 @@ export class RedisSessionStore extends Store {
             try {
                 const parsedSession = JSON.parse(data) as SessionData;
                 // 👇 加日志：验证读取到的 session 是否有 googleAuthState
-                console.log('✅ Session 读取成功 - 数据:', {
-                    googleAuthState: parsedSession.googleAuthState,
-                    cookie: parsedSession.cookie
-                });
+                // console.log('✅ Session 读取成功 - 数据:', {
+                //     googleAuthState: parsedSession.googleAuthState,
+                //     cookie: parsedSession.cookie
+                // });
                 callback(null, parsedSession);
             } catch (parseErr: any) {
                 console.error('❌ Session 反序列化失败:', parseErr);

@@ -1,10 +1,12 @@
-import { DataTypes, Model, Op, Optional, Transaction } from "sequelize";
+import { DataTypes, Model, Op, Transaction } from "sequelize";
 import { sequelize } from './sequelize'
 import pinyin from 'pinyin'
 import { AlbumAttributes, AlbumCreationAttributes } from "../types/album";
 
 
-export class Album extends Model<AlbumAttributes, AlbumCreationAttributes> implements AlbumAttributes {
+export class Album extends Model<
+    AlbumAttributes, AlbumCreationAttributes
+> implements AlbumAttributes {
     public id!: number;
     public name!: string;
     public title!: string | null;

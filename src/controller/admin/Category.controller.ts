@@ -1,7 +1,7 @@
 import camelcaseKeys from 'camelcase-keys';
-import { CategoryService } from './../../services/Category.service';
+import { CategoryService } from '@/services/Category.service';
 import { Request, Response } from 'express';
-import type { CategoryListResult } from '../../types/models/category.type';
+import type { CategoryListResult } from '@/types/models/category.type';
 
 
 export class CategoryController {
@@ -129,13 +129,14 @@ export class CategoryController {
   }
   public static async bulkDeleteCategory(req: Request, res: Response) { 
     try {
-      const categoryIds = req.body.ids as number[];
+      const { ids } = req.query;
+      const idList = Array.isArray(ids)? ids.map(id => Number(id)) : [Number(ids)];
       // 调用服务层批量删除分类字段
-      const deletedCategories = await CategoryService.bulkDeleteCategory(categoryIds);
+      const deletedCategories = await CategoryService.bulkDeleteCategory(idList);
       res.status(200).json({
         code: 200,
         success: true,
-        message: "分类字段批量删除成功",
+        message: `成功删除 ${deletedCategories.deletedCount} 个分类字段`,
         data: null,
       })
     }catch (error) {
@@ -161,7 +162,7 @@ export class CategoryController {
   public static async getCategoryList(req: Request, res: Response) { 
     try {
       const {
-        keywords, id, status,
+        keyword, id, status,
         startTime, endTime,
         page, pageSize, sort, orderBy,
       } = req.query;
@@ -170,7 +171,7 @@ export class CategoryController {
       const size: number = Number(pageSize) || 10;
       const query = {
         id: id ? Number(id) : undefined,
-        keywords: typeof keywords === 'string' ? keywords : undefined,
+        keyword: typeof keyword === 'string' ? keyword : undefined,
         status: ['active', 'inactive'].includes(status as string) ? (status as "active" | "inactive") : undefined,
         createdFrom: typeof startTime === 'string' ? startTime : undefined,
         createdTo: typeof endTime === 'string' ? endTime : undefined,
@@ -181,8 +182,8 @@ export class CategoryController {
             ? (sort as "asc" | "desc")
             : "desc",
         orderBy:
-          ['name', 'order', 'createdAt'].includes(orderBy as string)
-            ? (orderBy as "name" | "order" | "created_at")
+          ['id', 'order', 'post_count', 'created_at', 'updated_at'].includes(orderBy as string)
+            ? (orderBy as "id" | "order" | "post_count" | "created_at" | "updated_at")
             : "created_at",
       }
       // 调用服务层获取数据（类型安全约束）

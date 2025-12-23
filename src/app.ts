@@ -9,10 +9,14 @@ import { logger, requestLogger } from './utils/logger'
 import { AppError } from './utils/errors';// 根据你的实际路径调整
 import { syncDatabase, testConnection } from './models/sequelize';
 import { initializeModels } from './models';
+console.log('DEBUG: models imported');
 import apiRoutes from './routes/index'
+console.log('DEBUG: routes imported');
 import path from 'path';
 import FileStore from 'session-file-store';
+console.log('DEBUG: session-file-store imported');
 import { RedisSessionStore } from './utils/redis';
+console.log('DEBUG: redis imported');
 
 const FileStoreInstance = FileStore(session);
 
@@ -116,7 +120,7 @@ export class App {
                 uptime: process.uptime()
             })
         })
-        this.app.use('/api/v1', apiRoutes)
+        // this.app.use('/api/v1', apiRoutes)
         this.app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')))
         this.app.use('/avatars', express.static(path.join(__dirname, '../public/avatars')))
     }
