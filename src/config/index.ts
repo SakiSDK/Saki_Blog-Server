@@ -1,56 +1,23 @@
-import dotenv from 'dotenv';
-import path from 'path';
+import './env-loader'
+import path from 'path'
+import serverConfig from './server.config'
+import databaseConfig from './database.config'
+import redisConfig from './redis.config'
+import jwtConfig from './jwt.config'
+import amapConfig from './amap.config'
+import corsConfig from './cors.config'
 
-const env = process.env.NODE_ENV || 'development' //获取当前是不是开发环境
-dotenv.configDotenv({
-    path: `.env.${env}`
-})
 
 export const config = {
-    /** ---------- 当前开发环境 ---------- */
-    env: process.env.NODE_ENV || 'development',
-    
-    /** ---------- 服务器配置 ---------- */
-    port: process.env.PORT || 3000,
-    host: process.env.HOST || 'localhost',
-    serverUrl: process.env.SERVER_URL,
-    signSecret: process.env.SIGN_SECRET || 'default-secret',
-    frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
-
-    /** ---------- 数据库配置 ---------- */
-    database: {
-        host: process.env.DB_HOST || 'localhost',
-        port: process.env.DB_PORT || 3306,
-        user: process.env.DB_USER || 'root',
-        password: process.env.DB_PASSWORD || '200444ww..',
-        name: process.env.DB_NAME || 'my_blog',
-        dialect: process.env.DB_DIALECT || 'mysql',
-    },
-
-    /** ---------- redis配置 ---------- */
-    redis: {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: process.env.REDIS_PORT || 6379,
-        password: process.env.REDIS_PASSWORD || '',
-        db: process.env.REDIS_DB || 0,
-        prefix: process.env.REDIS_KEY_PREFIX || 'verify_code:',
-    },
-
-    /** ---------- JWT登录验证配置 ---------- */
-    jwt: {
-        accessTokenSecret: process.env.JWT_ACCESSTOKENSECRET || 'default-secret',
-        refreshTokenSecret: process.env.JWT_REFRESHTOKENSECRET || 'default-secret',
-        accessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '7d',
-        refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d',
-        issuer: process.env.JWT_ISSUER || 'SDK',
-    },
-
-    /** ---------- 高德地图配置 ---------- */
-    amap: {
-        apiKey: process.env.AMAP_API_KEY || '',
-        baseUrl: process.env.AMAP_BASE_URL || 'https://restapi.amap.com/v3',
-    },
-
+    ...serverConfig,
+    /** 数据库配置 */
+    database: databaseConfig,
+    /** redis配置 */
+    redis: redisConfig,
+    /** JWT登录验证配置 */
+    jwt: jwtConfig,
+    /** 高德地图配置 */
+    amap: amapConfig,
     /** ---------- 上传配置 ---------- */
     upload: {
         path: path.resolve(process.env.UPLOAD_PATH || './uploads'), // 绝对路径
@@ -123,5 +90,6 @@ export const config = {
             pass: process.env.EMAIL_PASS,
         },
         from: process.env.EMAIL_FROM,
-    }
+    },
+    env: process.env.NODE_ENV || 'development',
 }

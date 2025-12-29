@@ -6,7 +6,7 @@ import { logger } from "../utils/logger";
 const sequelize = new Sequelize({
     dialect: config.database.dialect as 'mysql' | 'postgres' | 'sqlite' | 'mssql',
     host: config.database.host,
-    port: config.database.port ? parseInt(config.database.port as string) : 3306,
+    port: config.database.port ? config.database.port : 3306,
     username: config.database.user,
     password: config.database.password,
     database: config.database.name,

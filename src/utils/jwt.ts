@@ -12,8 +12,8 @@ export interface JwtPayload {
 }
 
 // 从配置文件中获取JWT参数（集中管理，便于环境切换）
-const ACCESSTOKENSECRET = config.jwt.accessTokenSecret
-const REFRESHTOKENSECRET = config.jwt.refreshTokenSecret
+const ACCESSTOKENSECRET = config.jwt.accessSecret
+const REFRESHTOKENSECRET = config.jwt.refreshSecret
 const ACCESSEXPIRESIN: string | number = config.jwt.accessExpiresIn
 const REFRESHEXPIRESIN: string | number = config.jwt.refreshExpiresIn
 

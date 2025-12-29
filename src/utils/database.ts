@@ -7,7 +7,7 @@ class MySQLDatabase {
     constructor() {
         this.pool = mysql.createPool({
             host: config.database.host || 'localhost',
-            port: config.database.port ? parseInt(config.database.port as string) : 3306,
+            port: config.database.port ? config.database.port : 3306,
             user: config.database.user || 'root',
             password: config.database.password || '200444ww..',
             database: config.database.name || 'my_blog',
