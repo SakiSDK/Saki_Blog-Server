@@ -1,10 +1,7 @@
 import { DataTypes, Model, Optional, Transaction } from "sequelize";
 import { sequelize } from "./sequelize";
 import { Post } from "./Post.model";
-import path from "path";
-import fs from "fs/promises";
-import { config } from "../config/index";
-import { InternalServerError, NotFoundError } from "../utils/errors";
+import { NotFoundError } from "../utils/errors";
 
 export interface PostImageAttributes {
     id: number;
@@ -56,68 +53,6 @@ export class PostImage extends Model<PostImageAttributes, PostImageCreationAttri
         } catch (error) {
             console.error('图片文章关联创建失败',error)
             throw error;
-        }
-    }
-
-    //获取图片Buffer内容
-    public async getImageBuffer(): Promise<Buffer> {
-        try {
-            const fullPath = path.join(config.upload.path, 'images', this.image_path);
-            return await fs.readFile(fullPath);
-        } catch (error: any) {
-            if (error.code === 'ENOENT') {
-                throw new NotFoundError('图片文件不存在');
-            }
-            throw new InternalServerError('读取图片失败', { originalError: error.message });
-        }
-    }
-
-    //获取图片的Base64编码
-    public async getImageBase64(): Promise<string> {
-        try {
-            const buffer = await this.getImageBuffer();
-            return buffer.toString('base64');
-        } catch (error: any) {
-            throw new InternalServerError('转化图片为Base64失败', { originalError: error.message });
-        }
-    }
-
-    //获取图片的完整URL
-    public async getImageUrl(): Promise<string> {
-        if (this.image_path.startsWith('http')) {
-            return this.image_path
-        }
-        const baseUrl = config.serverUrl || `http://${config.host}:${config.port}`; 
-        return `${baseUrl}/uploads/images/${this.image_path}`;
-    }
-
-    // 获取图片信息（MIME类型等）
-    public getImageInfo(): { extension: string; mimeType: string } {
-        const extension = path.extname(this.image_path).toLowerCase();
-        const mimeTypes: { [key: string]: string } = {
-            '.jpg': 'image/jpeg',
-            '.jpeg': 'image/jpeg',
-            '.png': 'image/png',
-            '.gif': 'image/gif',
-            '.webp': 'image/webp',
-            '.svg': 'image/svg+xml',
-        };
-
-        return {
-            extension,
-            mimeType: mimeTypes[extension] || 'application/octet-stream'
-        };
-    }
-
-    // 删除图片文件
-    public async deleteImageFile(): Promise<void> {
-        try {
-            const fullPath = path.join(config.upload.path, this.image_path);
-            await fs.unlink(fullPath);
-        } catch (error: any) {
-            if (error.code !== 'ENOENT') { // 文件不存在时不报错
-                console.warn('删除图片文件失败:', error.message);
-            }
         }
     }
 }

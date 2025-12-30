@@ -10,7 +10,11 @@
 
 
 class AppError extends Error {
-    constructor(message: string, public status: number, public details?: any) {
+    constructor(
+        message: string,
+        public readonly status: number,
+        public readonly details?: any
+    ) {
         super(message);
         this.name = this.constructor.name;
         this.status = status

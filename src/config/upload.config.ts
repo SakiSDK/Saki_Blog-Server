@@ -33,15 +33,15 @@ const config: UploadConfig = {
   maxFileCount: parseInt(process.env.UPLOAD_MAX_FILE_COUNT || '10', 10),
   allowedMimeTypes: (
     process.env.UPLOAD_ALLOWED_MIME_TYPES
-    || 'image/jpeg,image/png,image/gif,imge/webp,image/svg+xml,application/pdf,application/msword'
+    || 'image/jpeg,image/png,image/gif,imge/webp,image/svg+xml,application/pdf,application/msword,application/markdown'
   ).split(','),
   allowedExtensions: (
     process.env.UPLOAD_ALLOWED_EXTENSIONS
-    || 'jpg,jpeg,png,gif,webp,svg,pdf'
+    || 'jpg,jpeg,png,gif,webp,svg,pdf,md'
   ).split(','),
   filenameStrategy: (
     process.env.UPLOAD_FILENAME_STRATEGY as UploadConfig['filenameStrategy'])
-    || 'timestamp',
+    || 'uuid',
   tempDir: path.resolve(process.env.UPLOAD_TEMP_DIR || './temp'),
   useHash: process.env.UPLOAD_USE_HASH === 'true',
   storageSubdir: process.env.UPLOAD_STORAGE_SUBDIR || 'images',

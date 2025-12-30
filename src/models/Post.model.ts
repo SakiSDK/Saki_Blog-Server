@@ -1,9 +1,6 @@
 import { DataTypes, Model, Optional, Transaction } from "sequelize";
 import { sequelize } from './sequelize'
-import { User, PostCategory, PostTag } from './index'
-import path from 'path'
-import fs from 'fs/promises'
-import { config } from '../config/index'
+import { PostCategory, PostTag } from './index'
 
 
 export interface PostAttributes {
@@ -43,69 +40,6 @@ export class Post extends Model<PostAttributes, PostCreationAttributes> implemen
     public image_paths?: string[] | null;
     public readonly created_at!: Date;
     public updated_at!: Date;
-
-    // 读取Markdown内容的方法
-    public async getMarkdownContent(): Promise<string> {
-        try {
-            if (!this.post_path) {
-                throw new Error('无法读取文章内容：文章路径为空');
-            }
-            const fullPath = path.join(config.upload.path, this.post_path);
-            return await fs.readFile(fullPath, 'utf-8');
-        } catch (error: any) {
-            throw new Error(`无法读取文章内容: ${error.message}`);
-        }
-    }
-
-    // 更新Markdown内容的方法
-    public async setContent(content: string): Promise<void> {
-        try {
-            if (!this.post_path) {
-                throw new Error('无法更新文章内容：文章路径为空');
-            }
-            const fullPath = path.join(config.upload.path, this.post_path);
-            await fs.writeFile(fullPath, content, 'utf-8');
-        } catch (error: any) {
-            throw new Error(`无法更新文章内容: ${error.message}`);
-        }
-    }
-
-    // 获取封面图的完整URL
-    public async getCoverImageUrl() {
-        if (!this.cover_path) {
-            return null
-        }
-        if (this.cover_path.startsWith('http')) {
-            return this.cover_path
-        }
-        const baseUrl = config.serverUrl || `http://${config.host}:${config.port}`;
-        return `${baseUrl}/uploads/covers/${this.cover_path}`;
-    }
-
-    // 获取封面图的本地绝对路径
-    public getCoverImagePath(): string | null {
-        if (!this.cover_path || this.cover_path.startsWith('http')) {
-            return null;
-        }
-        return path.join(config.upload.path, 'covers', this.cover_path);
-    }
-
-    //删除封面图片文件
-    public async deleteCoverImage(): Promise<void> {
-        if (!this.cover_path) return;
-        try {
-            const imagePath = this.getCoverImagePath();
-            if (imagePath) {
-                await fs.unlink(imagePath);
-            }
-            await this.save();
-        } catch (error: any) {
-            if(error.code !== 'ENOENT') {
-                console.warn('删除封面图片文件失败:', error.message);
-            }
-        }
-    }
-    
     // 删除文章并清理关联
     public static async deleteWithRelations(
         postId: number,
