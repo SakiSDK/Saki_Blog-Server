@@ -40,7 +40,7 @@ export class FileTooSmallError extends FileError {
 export type FilenameStrategy = 'uuid' | 'timestamp' | 'original';
 
 /** 压缩图片配置项类型 */
-export interface compressOptions {
+export interface CompressOptions {
   /** 缩略图宽度 */
   width?: number;
   /** 缩略图高度 */
@@ -140,6 +140,21 @@ const generateSafeFilename = (
   return `${base}${ext}`;
 };
 
+
+const generateFileUrl = (
+  filename: string, 
+  subdir?: string,
+  baseUrl?: string
+): string => {
+  const defaultBaseUrl = process.env.FILE_BASE_URL || '/uploads';
+  const dir = subdir || config.upload.storageSubdir;
+  const urlBase = baseUrl || defaultBaseUrl;
+  
+  // 清理路径，确保没有重复的斜杠
+  const cleanPath = path.posix.join('/', urlBase, dir, filename);
+  return cleanPath.replace(/\/+/g, '/');
+}
+
  /** 格式化文件大小 */
 const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return '0 B';
@@ -184,7 +199,7 @@ const getImageInfo = async (buffer: Buffer): Promise<{
  */
 const compressImage = async (
   buffer: Buffer,
-  options: compressOptions
+  options: CompressOptions
 ): Promise<Buffer> => {
     const {
       width,
@@ -241,7 +256,7 @@ const compressImage = async (
  */
 const generateThumbnail = async(
   buffer: Buffer,
-  options: compressOptions
+  options: CompressOptions
 ): Promise<Buffer> => {
   const {
     width = 400,
@@ -277,6 +292,7 @@ export {
   isFileSizeAllowed,
   isFileCountAllowed,
   sanitizeFilename,
+  generateFileUrl,
   getMimeTypeFromExt,
   // 图片相关函数
   getImageInfo,
