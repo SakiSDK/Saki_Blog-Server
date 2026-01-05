@@ -12,9 +12,9 @@ import { initializeModels } from './models';
 import apiRoutes from './routes/index'
 import path from 'path';
 import FileStore from 'session-file-store';
-import { RedisSessionStore } from './utils/redis';
+import { RedisSessionStore } from '@/libs/redis';
 
-const FileStoreInstance = FileStore(session);
+// const FileStoreInstance = FileStore(session);
 
 export class App {
     public app: express.Application;
@@ -28,7 +28,8 @@ export class App {
 
     // 初始化中间件
     private initMiddleware(): void { 
-        const sessionStore = new RedisSessionStore(3600); // 3600秒 = 1小时
+        // 会话中间件配置
+        const sessionStore = new RedisSessionStore();
 
         //session配置
         this.app.use(session({

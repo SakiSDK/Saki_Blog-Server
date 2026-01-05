@@ -12,12 +12,15 @@ import meilisearchConfig from './meilisearch.config'
 import ossConfig from './oss.config'
 import emailConfig from './email.config'
 import uploadConfig from './upload.config'
+import sessionConfig from './session.config'
 
 
 export const config = {
     ...serverConfig,
     /** 数据库配置 */
     database: databaseConfig,
+    /** 会话配置 */
+    session: sessionConfig,
     /** redis配置 */
     redis: redisConfig,
     /** JWT登录验证配置 */

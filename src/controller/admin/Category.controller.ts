@@ -8,7 +8,6 @@ export class CategoryController {
 
   public static async getAllCategories(req: Request, res: Response) {
     try {
-      console.log('获取所有分类');
       const categories = await CategoryService.getAllCategories();
       res.status(200).json({
         code: 200,

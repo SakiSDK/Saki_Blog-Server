@@ -33,7 +33,7 @@ const config: UploadConfig = {
   maxFileCount: parseInt(process.env.UPLOAD_MAX_FILE_COUNT || '10', 10),
   allowedMimeTypes: (
     process.env.UPLOAD_ALLOWED_MIME_TYPES
-    || 'image/jpeg,image/png,image/gif,imge/webp,image/svg+xml,application/pdf,application/msword,application/markdown'
+    || 'image/jpeg,image/png,image/gif,image/webp,image/svg+xml,application/pdf,application/msword,application/markdown'
   ).split(','),
   allowedExtensions: (
     process.env.UPLOAD_ALLOWED_EXTENSIONS

@@ -400,6 +400,64 @@
 
 //     private static formatUserInfo(user: User) {
 //         const { password, ...userInfo } = user.toJSON();
+
 //         return userInfo;
 //     }
 // }
+import { User } from '@/models';
+import { BadRequestError, UnauthorizedError } from '@/utils/errors';
+import { config } from '@/config';
+import crypto from 'crypto';
+import { SafeUser } from '@/models/User.model';
+import { redisClient } from '@/libs/redis';
+
+
+/** ---------- 类型定义 ---------- */
+/** 登录请求参数 */ 
+export type LoginParams = {
+  email: string;
+  password: string;
+  nonce: string;
+}
+
+
+export class AuthService { 
+  /** 
+   * 生成唯一 nonce（用于防重放攻击）
+   * @returns 生成的 nonce 字符串
+   */
+  public static async generateNonce(): Promise<string> {
+    const nonce = crypto.randomBytes(16).toString('hex');
+    await redisClient.set(`auth:nonce:${nonce}`, '1', 'EX', 300); // 5分钟过期
+    return nonce;
+  }
+
+  /** 
+   * 后台管理系统登录
+   * @param params 登录参数
+   * @returns 登录成功返回用户信息和令牌对
+   */
+  static async login(params: LoginParams): Promise<{
+    user: SafeUser,
+    tokens: {
+      accessToken: string,
+      refreshToken: string,
+    }
+  }> { 
+    const { email, password, nonce } = params;
+    
+    // 校验参数
+    if (!email || !password || !nonce) {
+      throw new BadRequestError('缺少必要参数');
+    }
+
+    // 验证 nonce
+    if (!(await redisClient.get(`auth:nonce:${nonce}`))) {
+      throw new BadRequestError('无效的 nonce');
+    } else {
+      await redisClient.del(`auth:nonce:${nonce}`);
+    }
+
+    return User.validateCredentials(email, password);
+  }
+}

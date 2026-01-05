@@ -1,6 +1,7 @@
 import { Router } from "express";
 // import UserAdminRoute from './user.router'
 // import AmapAdminRoute from './amap.router'
+import AuthAdminRoute from "./auth.router";
 import TagRoute from "./tag.router";
 import CategoryRoute from "./category.router";
 import UploadRoute from "./upload.router";
@@ -8,13 +9,12 @@ import UploadRoute from "./upload.router";
 // import PhotoAdminRoute from './photo.router'
 // import CategoryAdminRoute from "./category.router";
 // import PostAdminRoute from "./post.router";
-// import AuthAdminRoute from "./auth.router";
 // import { authenticateToken, requireRole } from "../../middlewares/auth";
 
 const router: Router = Router();
 
 // // 
-// router.use('/auth', AuthAdminRoute)
+router.use('/auth', AuthAdminRoute)
 
 // // 全局中间件：所有子路由都需要先认证 + 角色必须是admin
 // router.use(authenticateToken);

@@ -8,12 +8,29 @@ import {
   FileError,
   FilenameStrategy,
   formatFileSize,
+  generateDateDir,
   generateSafeFilename
 } from '@/utils/file.util';
 import fs from 'fs';
 import { RequestHandler } from 'express';
 import express, { Request, Response, NextFunction } from 'express';
 
+
+// 扩展Express Request类型
+declare global {
+  namespace Express {
+    interface Request {
+      uploadInfo?: {
+        subdir: string;
+        isEditing: boolean;
+        editSessionId?: string;
+        resourceType: string;
+        resourceId: string;
+      };
+      uploadSubdir?: string;
+    }
+  }
+}
 
 /** ---------- 类型定义 ---------- */
 /** 上传配置 */
@@ -34,6 +51,37 @@ export interface UploadOptions {
   filenameStrategy?: FilenameStrategy;
   /** 上传后回调 */
   afterUpload?: (req: any, file: Express.Multer.File, filePath: string) => void;
+  /** 上传类型，用于生成不同的目录结构 */
+  resourceType?: 'post' | 'avatar' | 'general';
+  /** 资源ID */
+  resourceId?: string | ((req: any) => string);
+  /** 是否为编辑模式（使用临时存储） */
+  isEditing?: boolean;
+  /** 编辑会话ID（用于临时存储） */
+  editSessionId?: string | ((req: any) => string);
+}
+/** 文件移动结果 */
+export interface FileMoveResult {
+  success: boolean;
+  originalPath: string;
+  newPath: string;
+  relativePath: string;
+  url: string;
+  filename: string;
+  error?: string;
+}
+/** 临时文件信息 */
+export interface TempFileInfo {
+  filename: string;
+  originalName: string;
+  tempPath: string;
+  permanentPath: string;
+  size: number;
+  mimeType: string;
+  uploadedAt: Date;
+  editSessionId: string;
+  resourceType: string;
+  resourceId?: string;
 }
 
 
@@ -75,89 +123,113 @@ export class FileTypeNotAllowedError extends FileUploadError {
 }
 
 /** ---------- 辅助函数 ---------- */
-/** 获取文件存储子目录 */
-const getStorageSubdir = (
-  req: any,
-  file: Express.Multer.File,
-  customSubdir?: string | ((req: any, file: Express.Multer.File) => string)
-): string => {
-  // 优先使用自定义子目录
-  if (customSubdir) {
-    if (typeof customSubdir === 'function') {
-      return customSubdir(req, file);
-    }
-    return customSubdir;
-  }
-  const { storageSubdir } = config.upload;
-  
-  // 如果是日期格式字符串，替换为实际日期
-  if (typeof storageSubdir === 'string' && storageSubdir.includes('{date}')) {
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return storageSubdir.replace('{date}', `${year}/${month}/${day}`);
-  }
-
-  return storageSubdir as string || 'uploads';
+/** 获取资源ID */
+const getResourceId = (req: any, options?: UploadOptions): string => {
+  if(!options?.resourceId) return '';
+  if(typeof options.resourceId === 'function') return options.resourceId(req);
+  return options.resourceId;
 }
 
-/** 获取存储路径（根据是否使用临时存储） */
+/** 获取编辑会话ID */
+const getEditSessionId = (req: any, options?: UploadOptions): string => {
+  if (options?.editSessionId) {
+    if (typeof options.editSessionId === 'function') {
+      return options.editSessionId(req);
+    }
+    return options.editSessionId;
+  }
+  
+  // 如果没有提供编辑会话ID，生成一个基于时间戳和随机数的ID
+  return `edit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+};
+
+/** 生成最终的存储子目录 */
+const generateStorageSubdir = (
+  req: any,
+  file: Express.Multer.File,
+  options?: UploadOptions
+): string => {
+  // 如果有自定义子目录，优先使用
+  if (options?.customStorageSubdir) {
+    if (typeof options.customStorageSubdir === 'function') {
+      return options.customStorageSubdir(req, file);
+    }
+    return options.customStorageSubdir;
+  }
+
+  const resourceId = getResourceId(req, options);
+  const datePath = generateDateDir();
+  const resourceType = options?.resourceType || 'general';
+  const isEditing = options?.isEditing || options?.useTempStorage;
+
+  // 如果是编辑模式，使用临时目录
+  if (isEditing) {
+    const editSessionId = getEditSessionId(req, options);
+    
+    switch (resourceType) {
+      case 'post':
+        return `posts/editing/${editSessionId}`;
+      case 'avatar':
+        return `avatars/editing/${editSessionId}`;
+      default:
+        return `general/editing/${editSessionId}`;
+    }
+  }  
+
+  switch (resourceType) {
+    case 'post':
+      return `images/posts/${datePath}/post_${resourceId}`;
+    case 'avatar':
+      return `images/avatars/${datePath}/user_${resourceId}`;
+    case 'general':
+    default:
+      return `images/general/${datePath}`;
+  }
+}
+
+/** 获取存储路径 */
 const getStoragePath = (
-  baseDir: string,
   subdir: string,
   useTempStorage: boolean
 ): { uploadDir: string; tempDir?: string } => {
+  const baseDir = useTempStorage ? config.upload.tempDir : config.upload.rootPath;
   const uploadDir = path.join(baseDir, subdir);
-
-  if (useTempStorage && config.upload.tempDir) {
-    const tempDir = path.join(config.upload.tempDir, subdir);
-    return { uploadDir, tempDir };
-  }
-
   return { uploadDir };
-}
+};
 
 
 
 /** ---------- 存储引擎 ---------- */
 /** 创建存储引擎 */
 const createStorageEngine = (options?: UploadOptions) => {
-  // 即使启用压缩，我们也先存储到磁盘（可能是临时目录），
-  // 然后压缩中间件会读取、处理并覆盖它。
-  // 这避免了 memoryStorage 不提供 file.path 的问题，
-  // 并且对于大文件来说内存更安全。
   return multer.diskStorage({
     destination: (req, file, cb) => {
       try {
-        const subdir = getStorageSubdir(req, file, options?.customStorageSubdir);
-        const { uploadDir, tempDir } = getStoragePath(
-          config.upload.rootPath,
+        const subdir = generateStorageSubdir(req, file, options);
+        const useTempStorage = options?.useTempStorage || false;
+        const { uploadDir } = getStoragePath(subdir, useTempStorage);
+
+        // 保存信息到请求对象
+        (req as any).uploadInfo = {
           subdir,
-          options?.useTempStorage || false
-        );
+          isEditing: useTempStorage,
+          editSessionId: useTempStorage ? getEditSessionId(req, options) : undefined,
+          resourceType: options?.resourceType || 'general',
+          resourceId: getResourceId(req, options)
+        };
 
-        // 保存子目录到请求对象，供后续中间件使用
-        (req as any).uploadSubdir = subdir;
-
-        // 确保目录存在，不存在则创建
         ensureDirExists(uploadDir);
-        if (tempDir) {
-          ensureDirExists(tempDir);
-        }
-
-        // 决定存储到哪个目录
-        const storageDir = options?.useTempStorage && tempDir ? tempDir : uploadDir;
-        cb(null, storageDir);
+        cb(null, uploadDir);
       } catch (error) {
         cb(error as Error, '上传目录创建失败');
       }
     },
     filename: (req, file, cb) => { 
       try {
+        const strategy = options?.filenameStrategy || config.upload.filenameStrategy;
         const filename = generateSafeFilename(
           file.originalname,
-          config.upload.filenameStrategy,
+          strategy,
           config.upload.useHash
         );
         cb(null, filename);
@@ -252,72 +324,41 @@ const createErrorHandler = () => {
 }
 
 /** 文件压缩中间件 */
-const createCompressionMiddleware = (options?: UploadOptions) => { 
-  // 如果配置中禁用了压缩，并且也没有在选项中启用，则不使用压缩
-  if (!config.upload.enableCompression && !options?.enableCompression) {
-    return (_req: Request, _res: Response, next: NextFunction) => next();
-  }
-  
+const createCompressionMiddleware = (options?: UploadOptions) => {
+  const shouldCompress = config.upload.enableCompression || options?.enableCompression;
+  if (!shouldCompress) return (req: Request, res: Response, next: NextFunction) => next();
+
   return async (req: any, _res: Response, next: NextFunction) => {
     try {
       const files = req.files;
-      if (!files || Object.keys(files).length === 0) {
-        return next();
-      }
-      // 处理不同的Multer模式：
-      // - .array() → files 是数组
-      // - .fields() → files 是 { fieldname: File[] }
-      // - .single() → 不会进这个中间件（因为 req.files 不存在）
+      if (!files || Object.keys(files).length === 0) return next();
+
+      const compressionOptions = options?.compressionOptions || {};
+
       const processFile = async (file: Express.Multer.File) => {
-        // 仅处理图像
-        if (!file.mimetype.startsWith('image/')) {
-          return;
-        }
+        if (!file.mimetype.startsWith('image/')) return;
 
-        // 读取原始文件 buffer
-        let buffer: Buffer;
-        try {
-          buffer = await fs.promises.readFile(file.path);
-        } catch (error) {
-          throw new FileError(`读取上传文件失败: ${file.path}`);
-        }
-
-        // 执行压缩（使用默认或者配置化的选项）
-        const compressedBuffer = await compressImage(buffer, {});
-
-        // 覆盖原始文件 buffer
+        const buffer = await fs.promises.readFile(file.path);
+        const compressedBuffer = await compressImage(buffer, compressionOptions);
         await fs.promises.writeFile(file.path, compressedBuffer);
-
-        // 更新文件元信息
         file.size = compressedBuffer.length;
+      };
+
+      if (Array.isArray(files)) {
+        await Promise.all(files.map(processFile));
+      } else {
+        const fileArrays = Object.values(files) as Express.Multer.File[][];
+        for (const fileArray of fileArrays) {
+          await Promise.all(fileArray.map(processFile));
+        }
       }
 
-      // 遍历所有上传的文件
-      if (Array.isArray(files)) {
-        // upload.array()
-        for (const file of files) {
-          await processFile(file);
-        }
-      } else {
-        // upload.fields() → { avatar: [...], images: [...] }
-        for (const fieldFiles of Object.values(files)) {
-          for (const file of fieldFiles as Express.Multer.File[]) {
-            await processFile(file);
-          }
-        }
-      }
       next();
     } catch (error) {
-      // 类型守卫检查
-      if (error instanceof FileError) {
-        next(error);
-      } else {
-        // 确保 error 是 Error 类型或提供默认消息
-        const errorMessage = error instanceof Error ? error.message : '未知错误';
-        next(new FileError(`文件压缩过程中发生未知错误: ${errorMessage}`));
-      }
+      const message = error instanceof Error ? error.message : '未知错误';
+      next(new FileError(`文件压缩失败: ${message}`));
     }
-  };
+  }
 }
 
 /** 创建移动中间件（将临时文件移动到最终存储目录） */
@@ -330,11 +371,14 @@ const createMoveMiddleware = (options?: UploadOptions) => {
   return async (req: Request, _res: Response, next: NextFunction) => {
     try {
       const files = (req as any).files;
-      if (!files || Object.keys(files).length === 0) {
-        return next();
-      }
-      
-      const subdir = (req as any).uploadSubdir || 'uploads';
+      if (!files || Object.keys(files).length === 0) return next();
+
+      const uploadInfo = req.uploadInfo;
+      if (uploadInfo?.isEditing) return next(); // 编辑模式不移动
+
+      const { subdir } = uploadInfo || {};
+      if (!subdir) return next();
+
       const tempDir = path.join(config.upload.tempDir, subdir);
       const uploadDir = path.join(config.upload.rootPath, subdir);
       
@@ -342,26 +386,20 @@ const createMoveMiddleware = (options?: UploadOptions) => {
       ensureDirExists(uploadDir);
       
       const moveFile = async (file: Express.Multer.File) => {
-        const tempPath = file.path;
-        const targetPath = path.join(uploadDir, file.filename);
-        
-        // 检查文件是否在临时目录中
-        if (tempPath && tempPath.startsWith(config.upload.tempDir)) {
-          await fs.promises.rename(tempPath, targetPath);
-          file.path = targetPath; // 更新文件路径
+        if (file.path?.startsWith(config.upload.tempDir)) {
+          const targetPath = path.join(uploadDir, file.filename);
+          await fs.promises.rename(file.path, targetPath);
+          file.path = targetPath;
         }
       };
       
       // 移动所有文件
       if (Array.isArray(files)) {
-        for (const file of files) {
-          await moveFile(file);
-        }
+        await Promise.all(files.map(moveFile));
       } else {
-        for (const fieldFiles of Object.values(files)) {
-          for (const file of fieldFiles as Express.Multer.File[]) {
-            await moveFile(file);
-          }
+        const fileArrays = Object.values(files) as Express.Multer.File[][];
+        for (const fileArray of fileArrays) {
+          await Promise.all(fileArray.map(moveFile));
         }
       }
       
@@ -381,18 +419,15 @@ const createCleanupMiddleware = (options?: UploadOptions) => {
     return (_req: Request, _res: Response, next: NextFunction) => next();
   }
   
-  return async (req: Request, _res: Response, next: NextFunction) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
     // 在响应结束后清理临时文件
     const cleanup = async () => {
       try {
-        const subdir = (req as any).uploadSubdir;
-        if (!subdir) return;
+        const uploadInfo = req.uploadInfo;
+        if (!uploadInfo?.subdir || uploadInfo.isEditing) return;
         
-        const tempDir = path.join(config.upload.tempDir, subdir);
-        
-        // 检查目录是否存在
+        const tempDir = path.join(config.upload.tempDir, uploadInfo.subdir);
         if (fs.existsSync(tempDir)) {
-          // 删除目录及其内容
           await fs.promises.rm(tempDir, { recursive: true, force: true });
         }
       } catch (error) {
@@ -401,12 +436,10 @@ const createCleanupMiddleware = (options?: UploadOptions) => {
     };
     
     // 在响应结束时执行清理
-    const originalEnd = (_res as any).end;
-    (_res as any).end = function(chunk: any, encoding: any, callback: any) {
-      originalEnd.call(this, chunk, encoding, () => {
-        cleanup().finally(() => {
-          if (callback) callback();
-        });
+    const originalEnd = (res as any).end;
+    (res as any).end = function (...args: any[]) {
+      cleanup().finally(() => {
+        originalEnd.apply(this, args);
       });
     };
     
@@ -458,11 +491,10 @@ export const createUploadMiddleware = (
   return middlewares;
 };
 
+
 /** 预配置的上传中间件 */
 export const upload = {
-  /** 
-   * 创建自定义上传中间件
-   */
+  /** 创建自定义上传中间件 */
   create: (multerOptions?: {
     fields?: multer.Field[];
     fileFilter?: (req: Request, file: Express.Multer.File, cb: FileFilterCallback) => void;
@@ -470,6 +502,7 @@ export const upload = {
   }, uploadOptions?: UploadOptions): RequestHandler[] => {
     return createUploadMiddleware(multerOptions, uploadOptions);
   },
+
   /**
    * 通用单文件上传
    * @param fieldName 表单字段名 (默认: 'file')
@@ -500,141 +533,142 @@ export const upload = {
    * 多字段混合上传
    * @example upload.fields([{ name: 'avatar', maxCount: 1 }, { name: 'photos', maxCount: 8 }])
    */
-  fields: (
-    fields: multer.Field[],
-    options?: UploadOptions
-  ): RequestHandler[] => createUploadMiddleware({ fields }, options),
+  fields: (fields: multer.Field[], options?: UploadOptions): RequestHandler[] =>
+    createUploadMiddleware({ fields }, options),
   
-  /**
-   * 头像上传 (限制 2MB)
-   */
-  avatar: (
-    fieldName: string = 'avatar',
-    compressionQuality: number = 80
-  ): RequestHandler[] => createUploadMiddleware(
-    {
-      fields: [{ name: fieldName, maxCount: 1 }],
-      limits: { fileSize: 2 * 1024 * 1024 } // 2MB
-    },
-    {
-      enableCompression: true,
-      compressionOptions: {
-        quality: compressionQuality,
-        width: 800,
-        height: 800,
-        format: 'webp'
-      },
-      useTempStorage: true,
-      autoCleanTemp: true
-    }
-  ),
+  /** 编辑模式上传（临时存储） */
+  editing: {
+    /** 编辑文章图片 */
+    postImage: (fieldName = 'image', options?: UploadOptions): RequestHandler[] =>
+      createUploadMiddleware(
+        {
+          fields: [{ name: fieldName, maxCount: 1 }],
+          limits: { fileSize: 10 * 1024 * 1024 },
+        },
+        {
+          resourceType: 'post',
+          isEditing: true,
+          useTempStorage: true,
+          enableCompression: true,
+          compressionOptions: { quality: 85, format: 'webp' },
+          autoCleanTemp: false,
+          ...options,
+        }
+      ),
 
-  /**
-   * 文章图片上传
-   */
-  articleImages: (
-    fieldName: string = 'images',
-    options?: UploadOptions
-  ): RequestHandler[] => createUploadMiddleware(
-    {
-      fields: [{ name: fieldName, maxCount: 20 }],
-      limits: { fileSize: 10 * 1024 * 1024 } // 10MB
-    },
-    {
-      enableCompression: true,
-      compressionOptions: { quality: 85, format: 'avif' },
-      useTempStorage: true,
-      customStorageSubdir: 'articles/images',
-      ...options
-    }
-  ),
+    /** 批量编辑文章图片 */
+    postImages: (fieldName = 'images', maxCount = 10, options?: UploadOptions): RequestHandler[] =>
+      createUploadMiddleware(
+        {
+          fields: [{ name: fieldName, maxCount }],
+          limits: { fileSize: 10 * 1024 * 1024 },
+        },
+        {
+          resourceType: 'post',
+          isEditing: true,
+          useTempStorage: true,
+          enableCompression: true,
+          compressionOptions: { quality: 85, format: 'webp' },
+          autoCleanTemp: false,
+          ...options,
+        }
+      ),
+  },
 
-  /**
-   * 文章上传 (不压缩直接存储)
-   */
-  document: (
-    fieldName: string = 'document',
-    maxSizeMB: number = 50
-  ): RequestHandler[] => createUploadMiddleware(
-    {
-      fields: [{ name: fieldName, maxCount: 1 }],
-      limits: { fileSize: maxSizeMB * 1024 * 1024 }
-    },
-    {
-      enableCompression: false,
-      useTempStorage: false,
-      customFileFilter: (req, file) => {
-        // 只允许文档类型
-        const allowedMimes = [
-          'application/pdf',
-          'application/msword',
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          'text/plain',
-          'text/markdown'
-        ];
-        return allowedMimes.includes(file.mimetype);
-      }
-    }
-  ),
+  /** 正式上传 */
+  permanent: {
+    /** 文章图片 */
+    postImage: (fieldName = 'image', options?: UploadOptions): RequestHandler[] =>
+      createUploadMiddleware(
+        {
+          fields: [{ name: fieldName, maxCount: 1 }],
+          limits: { fileSize: 10 * 1024 * 1024 },
+        },
+        {
+          resourceType: 'post',
+          enableCompression: true,
+          compressionOptions: { quality: 85, format: 'webp' },
+          useTempStorage: true,
+          autoCleanTemp: true,
+          ...options,
+        }
+      ),
+
+    /** 批量文章图片 */
+    postImages: (fieldName = 'images', maxCount = 10, options?: UploadOptions): RequestHandler[] =>
+      createUploadMiddleware(
+        {
+          fields: [{ name: fieldName, maxCount }],
+          limits: { fileSize: 10 * 1024 * 1024 },
+        },
+        {
+          resourceType: 'post',
+          enableCompression: true,
+          compressionOptions: { quality: 85, format: 'webp' },
+          useTempStorage: true,
+          autoCleanTemp: true,
+          ...options,
+        }
+      ),
+
+    /** 头像 */
+    avatar: (fieldName = 'avatar', options?: UploadOptions): RequestHandler[] =>
+      createUploadMiddleware(
+        {
+          fields: [{ name: fieldName, maxCount: 1 }],
+          limits: { fileSize: 2 * 1024 * 1024 },
+        },
+        {
+          resourceType: 'avatar',
+          enableCompression: true,
+          compressionOptions: { quality: 80, width: 800, height: 800, format: 'webp' },
+          useTempStorage: true,
+          autoCleanTemp: true,
+          ...options,
+        }
+      ),
+  },
   
-  /**
-   * 大文件上传 (使用临时存储，不压缩)
-   */
-  largeFile: (
-    fieldName: string = 'file',
-    maxSizeMB: number = 500
-  ): RequestHandler[] => createUploadMiddleware(
-    {
-      fields: [{ name: fieldName, maxCount: 1 }],
-      limits: { fileSize: maxSizeMB * 1024 * 1024 }
-    },
-    {
-      enableCompression: false,
-      useTempStorage: true,
-      autoCleanTemp: true
-    }
-  ),
-  
-  /**
-   * 图像上传 (带智能压缩)
-   */
-  image: (
-    fieldName: string = 'image',
-    options?: UploadOptions & {
-      resize?: { width: number; height?: number };
-      format?: 'webp' | 'avif';
-    }
-  ): RequestHandler[] => {
-    // 构建压缩选项，只包含存在的值
-    const compressionOptions: CompressOptions = {
-      quality: options?.compressionOptions?.quality || 85,
-      format: options?.format || 'webp'
-    };
-
-    // 只有当width存在时才添加到配置中
-    if (options?.resize?.width !== undefined) {
-      compressionOptions.width = options.resize.width;
-    }
-
-    // 只有当height存在时才添加到配置中
-    if (options?.resize?.height !== undefined) {
-      compressionOptions.height = options.resize.height;
-    }
-
-    return createUploadMiddleware(
+  /** 文档上传 */
+  document: (fieldName = 'document', maxSizeMB = 50): RequestHandler[] =>
+    createUploadMiddleware(
       {
         fields: [{ name: fieldName, maxCount: 1 }],
-        limits: { fileSize: 20 * 1024 * 1024 } // 20MB
+        limits: { fileSize: maxSizeMB * 1024 * 1024 },
       },
       {
-        enableCompression: true,
-        compressionOptions,
-        useTempStorage: options?.useTempStorage ?? true,
-        autoCleanTemp: options?.autoCleanTemp ?? true,
-        ...options
+        enableCompression: false,
+        useTempStorage: false,
+        customFileFilter: (req, file, cb) => {
+          const allowedMimes = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'text/plain',
+            'text/markdown',
+          ];
+          if (allowedMimes.includes(file.mimetype)) {
+            cb(null, true);
+          } else {
+            cb(new FileTypeNotAllowedError(file.fieldname, file.originalname, file.mimetype));
+          }
+        },
       }
-    );
-  }
+    ),
+
+  /** 大文件上传 */
+  largeFile: (fieldName = 'file', maxSizeMB = 500): RequestHandler[] =>
+    createUploadMiddleware(
+      {
+        fields: [{ name: fieldName, maxCount: 1 }],
+        limits: { fileSize: maxSizeMB * 1024 * 1024 },
+      },
+      {
+        enableCompression: false,
+        useTempStorage: true,
+        autoCleanTemp: true,
+      }
+    ),
 }
 
 export const uploadErrorHandler = createErrorHandler();

@@ -1,7 +1,7 @@
 import { DataTypes, Model, Optional } from 'sequelize'
 import bcrypt from 'bcryptjs'
 import { sequelize } from './sequelize'
-import { JwtService, JwtPayload } from '../utils/jwt'
+import { JwtService, JwtPayload } from '@/libs/jwt'
 import {
     UnauthorizedError
 } from '../utils/errors'
@@ -9,6 +9,18 @@ import { config } from '../config/index';
 import crypto from 'crypto'
 import { ShortIdUtil } from '../utils/shortIdUtil'
 
+
+/** 安全用户信息（登录后返回） */
+export type SafeUser = {
+    id: number;
+    shortId: string;
+    nickname: string;
+    email: string;
+    gender: string;
+    avatar: string | undefined;
+    bio: string | undefined;
+    createdAt: Date;
+}
 
 // 定义用户属性接口
 interface UserAttributes {
@@ -109,15 +121,14 @@ export class User extends Model<UserAttributes, UserCreationAttributes> implemen
         email: string,
         password: string
     ): Promise<{
-        user: User;
+        user: SafeUser;
         tokens: {
             accessToken: string;
             refreshToken: string
         }
     }> {
-        const user = await User.findOne({ where: { email } });
-        if (!user) throw new UnauthorizedError('用户不存在');
-        if (user.status !== 'inactive') throw new UnauthorizedError('用户未激活');
+        const user = await User.findOne({ where: { email, status: 'active' } });
+        if (!user) throw new UnauthorizedError('用户不存在或未激活');
         if (!user.password) throw new UnauthorizedError('该账号为第三方登录，无需密码，请直接通过对应平台登录');
 
         const isValid = await user.validatePassword(password);
@@ -135,7 +146,7 @@ export class User extends Model<UserAttributes, UserCreationAttributes> implemen
         email: string;
         avatar?: string;
     }): Promise<{
-        user: User;
+        user: SafeUser;
         tokens: {
             accessToken: string;
             refreshToken: string;
@@ -194,17 +205,29 @@ export class User extends Model<UserAttributes, UserCreationAttributes> implemen
     }
 
     // 工具方法：生成JWT令牌（复用逻辑）
-    private static async generateTokens(user: User) {
+    private static async generateTokens(user: User): Promise<{ user: SafeUser, tokens: { accessToken: string, refreshToken: string } }> {
         const jwtPayload: JwtPayload = {
             id: user.id,
-            username: user.username,
+            nickname: user.username,
             email: user.email,
             role: user.role as string,
         };
         const accessToken = JwtService.generateAccessToken(jwtPayload);
         const refreshToken = JwtService.generateRefreshToken(jwtPayload);
         const userInfo = await User.findByPk(user.id, { attributes: { exclude: ['password'] } }) as User;
-        return { user: userInfo, tokens: { accessToken, refreshToken } };
+        return {
+            user: {
+                id: userInfo.id,
+                shortId: userInfo.short_id,
+                nickname: userInfo.nickname,
+                email: userInfo.email,
+                gender: userInfo.gender,
+                avatar: userInfo.avatar,
+                bio: userInfo.bio,
+                createdAt: userInfo.created_at,
+            },
+            tokens: { accessToken, refreshToken }
+        };
     }
 }
 

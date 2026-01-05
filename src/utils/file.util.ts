@@ -173,6 +173,13 @@ const ensureDirExists = async (dirPath: string): Promise<void> => {
   }
 };
 
+/** 根据日期生成目录结构 */
+const generateDateDir = (date: Date = new Date()): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${year}/${month}`;
+}
+
 /** 获取图片信息 */
 const getImageInfo = async (buffer: Buffer): Promise<{
   width: number;
@@ -282,6 +289,170 @@ const generateThumbnail = async(
   });
 }
 
+/** 
+ * 获取文件基本信息
+ */
+const getFileInfo = (file: Express.Multer.File) => {
+  return {
+    filename: file.filename,
+    originalName: file.originalname,
+    size: file.size,
+    mimetype: file.mimetype,
+    path: file.path,
+    extension: path.extname(file.originalname).toLowerCase()
+  };
+};
+
+/**
+ * 根据文件路径生成访问 URL
+ * @param filePath 文件绝对路径
+ * @param isTemp 是否是临时文件
+ */
+const generateUrlFromPath = (filePath: string, isTemp: boolean = false): string => {
+  const rootPath = isTemp && config.upload.tempDir ? config.upload.tempDir : config.upload.rootPath;
+  const baseUrl = process.env.FILE_BASE_URL || '/uploads';
+  
+  // 计算相对路径
+  let relativePath = path.relative(rootPath, filePath);
+  
+  // 如果是临时文件，可能需要特殊的前缀，或者假设临时文件也在 uploads 目录下但不同子目录
+  // 这里假设所有 web 可访问文件都挂载在 baseUrl 下
+  // 如果临时目录不在 web 根目录下，这个 URL 可能无法访问（除非有专门的路由处理临时文件）
+  
+  // 统一路径分隔符
+  const urlPath = relativePath.split(path.sep).join('/');
+  
+  return path.posix.join(baseUrl, isTemp ? 'temp' : '', urlPath).replace(/\/+/g, '/');
+};
+
+/**
+ * 获取正式存储路径
+ */
+const getPermanentPathFromTemp = (
+  tempPath: string, 
+  resourceId: string, 
+  type: 'post' | 'avatar' | 'other' = 'other'
+): string => {
+  const filename = path.basename(tempPath);
+  let subdir = '';
+  
+  // 根据类型决定目录结构
+  switch(type) {
+    case 'post':
+      // 文章图片通常按文章ID或日期存储
+      // 这里简单起见，使用日期/文章ID
+      subdir = `posts/${generateDateDir()}/${resourceId}`;
+      break;
+    case 'avatar':
+      subdir = `avatars/${resourceId}`;
+      break;
+    default:
+      subdir = `others/${generateDateDir()}`;
+  }
+  
+  return path.join(config.upload.rootPath, subdir, filename);
+};
+
+/**
+ * 将临时文件移动到正式目录
+ */
+const moveTempToPermanent = async (
+  editSessionId: string,
+  resourceId: string,
+  type: 'post' | 'avatar' | 'other',
+  options?: {
+    baseUrl?: string,
+    keepOriginals?: boolean
+  }
+): Promise<Array<{
+  success: boolean,
+  originalPath: string,
+  newPath: string,
+  url: string,
+  error?: string
+}>> => {
+  if (!config.upload.tempDir) {
+    throw new Error('未配置临时目录');
+  }
+
+  // 根据资源类型构建临时子目录路径，需与 upload.middleware.ts 中的 generateStorageSubdir 逻辑保持一致
+  let tempSubdir = '';
+  switch (type) {
+    case 'post':
+      tempSubdir = `temp/posts/editing/${editSessionId}`;
+      break;
+    case 'avatar':
+      tempSubdir = `temp/avatars/editing/${editSessionId}`;
+      break;
+    default:
+      tempSubdir = `temp/others/editing/${editSessionId}`;
+  }
+
+  const tempDir = path.join(config.upload.tempDir, tempSubdir);
+  
+  // 检查目录是否存在
+  try {
+    await fs.promises.access(tempDir);
+  } catch {
+    return []; // 目录不存在，没有文件需要移动
+  }
+
+  const files = await fs.promises.readdir(tempDir);
+  const results = [];
+
+  for (const file of files) {
+    const tempFilePath = path.join(tempDir, file);
+    // 忽略目录
+    const stat = await fs.promises.stat(tempFilePath);
+    if (stat.isDirectory()) continue;
+
+    const permanentPath = getPermanentPathFromTemp(tempFilePath, resourceId, type);
+    
+    try {
+      // 确保目标目录存在
+      await ensureDirExists(path.dirname(permanentPath));
+      
+      // 移动或复制
+      if (options?.keepOriginals) {
+        await fs.promises.copyFile(tempFilePath, permanentPath);
+      } else {
+        await fs.promises.rename(tempFilePath, permanentPath);
+      }
+      
+      const url = generateUrlFromPath(permanentPath, false);
+      
+      results.push({
+        success: true,
+        originalPath: tempFilePath,
+        newPath: permanentPath,
+        url
+      });
+    } catch (error) {
+      results.push({
+        success: false,
+        originalPath: tempFilePath,
+        newPath: permanentPath,
+        url: '',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  // 如果不保留原文件，且目录为空，尝试删除临时目录
+  if (!options?.keepOriginals) {
+    try {
+      const remaining = await fs.promises.readdir(tempDir);
+      if (remaining.length === 0) {
+        await fs.promises.rmdir(tempDir);
+      }
+    } catch (e) {
+      // 忽略删除目录错误
+    }
+  }
+
+  return results;
+};
+
 export {
   // 文件相关函数
   generateSafeFilename,
@@ -294,8 +465,14 @@ export {
   sanitizeFilename,
   generateFileUrl,
   getMimeTypeFromExt,
+  generateDateDir,
   // 图片相关函数
   getImageInfo,
   generateThumbnail,
   compressImage,
+  // 新增辅助函数
+  getFileInfo,
+  generateUrlFromPath,
+  getPermanentPathFromTemp,
+  moveTempToPermanent
 }

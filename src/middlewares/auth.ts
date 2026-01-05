@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { JwtService } from '../utils/jwt';
+import { JwtService } from '../utils/jwt.util';
 import { User } from '../models/User.model';
 
 export interface AuthenticatedRequest extends Request {
