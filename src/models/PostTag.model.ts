@@ -1,6 +1,6 @@
 import { DataTypes, Model, Optional, Op, Transaction } from 'sequelize'
 import { sequelize } from './sequelize'
-import { Post } from './Post.model'
+import { Post } from './Article.model'
 import { Tag } from './Tag.model'
 
 export interface PostTagAttributes {

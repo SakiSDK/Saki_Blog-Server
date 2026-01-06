@@ -7,7 +7,7 @@ import {
 } from '../utils/errors'
 import { config } from '../config/index';
 import crypto from 'crypto'
-import { ShortIdUtil } from '../utils/shortIdUtil'
+import { ShortIdUtil } from '../utils/shortId.util'
 
 
 /** 安全用户信息（登录后返回） */

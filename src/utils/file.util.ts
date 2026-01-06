@@ -63,7 +63,13 @@ export interface CompressOptions {
 
 
 // ========================= 文件和图片相关函数 ========================
-/** 从文件扩展名获取 MIME 类型 */
+/**
+ * 根据文件扩展名获取对应的 MIME 类型
+ * @param ext 文件扩展名（如 '.jpg', '.png'），需带点
+ * @returns 对应的 MIME 类型字符串，若未知则返回 null
+ * @example
+ * getMimeTypeFromExt('.png') // => 'image/png'
+ */
 const getMimeTypeFromExt = (ext: string): string | null => { 
   /** 从文件扩展名获取 MIME 类型 */
   const map: Record<string, string> = {
@@ -79,27 +85,56 @@ const getMimeTypeFromExt = (ext: string): string | null => {
   return map[ext.toLowerCase()] || null;
 }
 
-/** 检查文件扩展名是否在允许列表中 */
+/**
+ * 检查文件扩展名是否在系统允许的白名单中
+ * @param ext 文件扩展名（如 '.jpg'）
+ * @returns 是否允许
+ */
 const isExtAllowed = (ext: string): boolean => {
   return config.upload.allowedExtensions.includes(ext.toLowerCase());
 }
 
-/** 检查 MIME 是否合法（服务端二次校验） */
-const isMimeTypeAllowed = (mimeType: string): boolean => {
-  return config.upload.allowedMimeTypes.includes(mimeType);
+/**
+ * 检查文件扩展名是否在系统允许的白名单中
+ * @param ext 文件扩展名（如 '.jpg'）
+ * @returns 是否允许
+ */
+const isImageTypeAllowed = (mimeType: string): boolean => {
+  return config.upload.allowedImageTypes.includes(mimeType);
+}
+/**
+ * 检查文件 MIME 类型是否被系统允许（图片或文档等）
+ * @param mimeType 文件的 MIME 类型
+ * @returns 是否允许
+ */
+export const isFileTypeAllowed = (mimeType: string): boolean => {
+  return config.upload.allowedFileTypes.includes(mimeType);
 }
 
-/** 检查文件大小是否合法（服务端二次校验） */
+/**
+ * 检查文件大小是否在允许范围内（服务端二次校验）
+ * @param size 文件大小（字节）
+ * @returns 是否未超过最大限制
+ */
 const isFileSizeAllowed = (size: number): boolean => {
   return size <= config.upload.maxFileSize;
 }
 
-/** 检查文件数量是否合法（服务端二次校验） */
+/**
+ * 检查上传文件数量是否在允许范围内
+ * @param count 文件数量
+ * @returns 是否未超过最大数量
+ */
 const isFileCountAllowed = (count: number): boolean => {
   return count <= config.upload.maxFileCount;
 }
 
-/** 清理原始文件名，防止 ../ 或特殊字符 */ 
+/**
+ * 清理原始文件名，防止路径穿越（如 '../'）或特殊字符注入
+ * @param filename 原始文件名
+ * @returns 安全的文件名（仅包含字母、数字、点、下划线、连字符、括号、空格）
+ * @note 最大长度限制为 255 字符以兼容大多数文件系统
+ */
 const sanitizeFilename = (filename: string): string => {
   return basename(filename)
     .replace(/[^a-zA-Z0-9._\-() ]/g, '_') // 只保留安全字符
@@ -107,11 +142,17 @@ const sanitizeFilename = (filename: string): string => {
     .substring(0, 255); // 防止超长文件名
 };
 
-/** 生成安全的文件名 */
+/** 
+ * 生成安全的文件名 
+ * @description 默认使用 UUID 生成文件名
+ * @param originalName 原始文件名
+ * @param strategy 文件名生成策略
+ * @param useHash 是否使用哈希文件名
+ */
 const generateSafeFilename = (
   originalName: string,
-  strategy: FilenameStrategy,
-  useHash = false
+  strategy: FilenameStrategy = 'uuid',
+  useHash: boolean = false
 ): string => {
   const cleanName = sanitizeFilename(originalName);
   const ext = path.extname(cleanName).toLowerCase();
@@ -140,7 +181,13 @@ const generateSafeFilename = (
   return `${base}${ext}`;
 };
 
-
+/**
+ * 生成文件的公开访问 URL
+ * @param filename 文件名（不含路径）
+ * @param subdir 子目录（如 'avatars', 'posts/2025/01'）
+ * @param baseUrl 基础 URL（默认从环境变量 FILE_BASE_URL 读取，否则用 '/uploads'）
+ * @returns 格式化后的 URL 字符串（如 '/uploads/avatars/xxx.png'）
+ */
 const generateFileUrl = (
   filename: string, 
   subdir?: string,
@@ -155,7 +202,11 @@ const generateFileUrl = (
   return cleanPath.replace(/\/+/g, '/');
 }
 
- /** 格式化文件大小 */
+/**
+ * 格式化字节数为人类可读单位（B/KB/MB/GB）
+ * @param bytes 字节数
+ * @returns 格式化字符串，如 "2.34 MB"
+ */
 const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return '0 B';
   const k = 1024;
@@ -164,7 +215,11 @@ const formatFileSize = (bytes: number): string => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-/** 确保文件夹存在，不存在则创建 */
+/**
+ * 确保指定目录存在，若不存在则递归创建
+ * @param dirPath 目录绝对路径
+ * @throws 若创建失败（如权限不足）则抛出错误
+ */
 const ensureDirExists = async (dirPath: string): Promise<void> => {
   try {
     await fs.promises.access(dirPath);
@@ -173,14 +228,23 @@ const ensureDirExists = async (dirPath: string): Promise<void> => {
   }
 };
 
-/** 根据日期生成目录结构 */
+/**
+ * 根据日期生成年/月结构的子目录（用于按时间归档）
+ * @param date 日期对象，默认当前时间
+ * @returns 格式如 '2025/01'
+ */
 const generateDateDir = (date: Date = new Date()): string => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   return `${year}/${month}`;
 }
 
-/** 获取图片信息 */
+/**
+ * 从图片 Buffer 中提取尺寸和格式信息
+ * @param buffer 图片二进制数据
+ * @returns 包含 width, height, type 的对象
+ * @throws 若解析失败则抛出 Error
+ */
 const getImageInfo = async (buffer: Buffer): Promise<{
   width: number;
   height: number;
@@ -198,11 +262,12 @@ const getImageInfo = async (buffer: Buffer): Promise<{
   }
 };
 
-/** 
- * 压缩图片
- * @param buffer 原始图片 Buffer 数据
- * @param options 缩略图配置项
- * @returns 压缩后的图片 Buffer
+/**
+ * 压缩图片并转换格式（支持 WebP/AVIF）
+ * @param buffer 原始图片 Buffer
+ * @param options 压缩配置
+ * @returns 压缩后的新 Buffer
+ * @throws 若输入无效或处理失败则抛出错误
  */
 const compressImage = async (
   buffer: Buffer,
@@ -255,10 +320,10 @@ const compressImage = async (
   }
 }
 
-/** 
- * 生成图片缩略图
- * @param buffer 原始图片 Buffer 数据
- * @param options 缩略图配置项
+/**
+ * 生成图片缩略图（默认 400x400，适合列表展示）
+ * @param buffer 原始图片 Buffer
+ * @param options 缩略图配置（覆盖默认值）
  * @returns 缩略图 Buffer
  */
 const generateThumbnail = async(
@@ -289,8 +354,10 @@ const generateThumbnail = async(
   });
 }
 
-/** 
- * 获取文件基本信息
+/**
+ * 提取 Multer 文件对象的关键信息
+ * @param file Express.Multer.File 对象
+ * @returns 标准化后的文件信息对象
  */
 const getFileInfo = (file: Express.Multer.File) => {
   return {
@@ -304,9 +371,11 @@ const getFileInfo = (file: Express.Multer.File) => {
 };
 
 /**
- * 根据文件路径生成访问 URL
+ * 根据本地文件路径生成 Web 可访问的 URL
  * @param filePath 文件绝对路径
- * @param isTemp 是否是临时文件
+ * @param isTemp 是否来自临时目录（影响 URL 前缀）
+ * @returns 公开 URL（如 '/uploads/posts/2025/01/xxx.avif'）
+ * @note 要求 Express 已配置静态资源路由指向 uploads 目录
  */
 const generateUrlFromPath = (filePath: string, isTemp: boolean = false): string => {
   const rootPath = isTemp && config.upload.tempDir ? config.upload.tempDir : config.upload.rootPath;
@@ -326,7 +395,11 @@ const generateUrlFromPath = (filePath: string, isTemp: boolean = false): string 
 };
 
 /**
- * 获取正式存储路径
+ * 根据临时文件路径生成正式存储路径
+ * @param tempPath 临时文件绝对路径
+ * @param resourceId 关联的资源 ID（如文章 ID、用户 ID）
+ * @param type 资源类型，决定目录结构
+ * @returns 正式存储的绝对路径
  */
 const getPermanentPathFromTemp = (
   tempPath: string, 
@@ -354,7 +427,14 @@ const getPermanentPathFromTemp = (
 };
 
 /**
- * 将临时文件移动到正式目录
+ * 将编辑会话中的临时文件批量移动到正式存储目录
+ * @param editSessionId 编辑会话 ID（用于定位临时目录）
+ * @param resourceId 最终关联的资源 ID（如文章 ID）
+ * @param type 资源类型
+ * @param options 高级选项
+ * @returns 每个文件的迁移结果数组
+ * @example
+ * const results = await moveTempToPermanent('sess_123', 'post_456', 'post');
  */
 const moveTempToPermanent = async (
   editSessionId: string,
@@ -459,7 +539,7 @@ export {
   ensureDirExists,
   formatFileSize,
   isExtAllowed,
-  isMimeTypeAllowed,
+  isImageTypeAllowed,
   isFileSizeAllowed,
   isFileCountAllowed,
   sanitizeFilename,

@@ -1,6 +1,6 @@
 import { DataTypes, Model, Op, Optional, Transaction } from "sequelize";
 import { sequelize } from "./sequelize";
-import { Post } from "./Post.model";
+import { Post } from "./Article.model";
 import pinyin from "pinyin"
 
 export interface CategoryAttributes {

@@ -7,7 +7,7 @@ import { Album } from './Album.model';
 import { Photo } from './Photo.model';
 import { Category } from './Category.model';
 import { Tag } from './Tag.model';
-import { Post } from './Post.model';
+import { Post } from './Article.model';
 import { PostTag } from './PostTag.model';
 import { PostCategory } from './PostCategory.model';
 import { Comment } from './Comment.model';

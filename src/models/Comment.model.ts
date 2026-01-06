@@ -1,6 +1,6 @@
 import { DataTypes, Model, Optional } from "sequelize";
 import { sequelize } from './sequelize'
-import { Post } from './Post.model'
+import { Post } from './Article.model'
 import { User } from './User.model'
 
 

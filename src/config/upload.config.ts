@@ -9,8 +9,10 @@ export interface UploadConfig {
   maxFileSize: number
   /** 单次上传最大文件数量 */
   maxFileCount: number
-  /** 允许的 MIME 类型（服务端校验） */
-  allowedMimeTypes: string[]
+  /** 允许的图片类型（服务端校验） */
+  allowedImageTypes: string[]
+  /** 允许的文件类型（服务端校验） */
+  allowedFileTypes: string[]
   /** 允许的文件扩展名（前端校验） */
   allowedExtensions: string[]
   /** 文件名生成策略 */
@@ -31,9 +33,13 @@ const config: UploadConfig = {
   rootPath: path.resolve(process.env.UPLOAD_PATH || './uploads'),
   maxFileSize: parseInt(process.env.UPLOAD_MAX_FILE_SIZE || '5242880', 10),
   maxFileCount: parseInt(process.env.UPLOAD_MAX_FILE_COUNT || '10', 10),
-  allowedMimeTypes: (
-    process.env.UPLOAD_ALLOWED_MIME_TYPES
-    || 'image/jpeg,image/png,image/gif,image/webp,image/svg+xml,application/pdf,application/msword,application/markdown'
+  allowedImageTypes: (
+    process.env.UPLOAD_ALLOWED_IMAGE_TYPES
+    || 'image/jpeg,image/png,image/gif,image/webp,image/svg+xml,image/avif'
+  ).split(','),
+  allowedFileTypes: (
+    process.env.UPLOAD_ALLOWED_FILE_TYPES
+    || 'application/pdf,application/msword,application/plain'
   ).split(','),
   allowedExtensions: (
     process.env.UPLOAD_ALLOWED_EXTENSIONS

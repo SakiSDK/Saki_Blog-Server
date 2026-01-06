@@ -23,7 +23,6 @@ router.use('/auth', AuthAdminRoute)
 // router.use('/user', UserAdminRoute)
 // router.use('/amap', AmapAdminRoute)
 // router.use('/album', AlbumAdminRoute)
-// router.use('/photo', Ph阿萨斯撒网闻所未闻哇哇哇哇
 router.use('/tag', TagRoute) 
 router.use('/category', CategoryRoute)
 router.use('/upload', UploadRoute)

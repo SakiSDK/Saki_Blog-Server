@@ -1,6 +1,6 @@
 import { DataTypes, Model, Optional, Transaction } from "sequelize";
 import { sequelize } from "./sequelize";
-import { Post } from "./Post.model";
+import { Post } from "./Article.model";
 import { NotFoundError } from "../utils/errors";
 
 export interface PostImageAttributes {

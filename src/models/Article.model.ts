@@ -2,18 +2,29 @@ import { DataTypes, Model, Optional, Transaction } from "sequelize";
 import { sequelize } from './sequelize'
 import { PostCategory, PostTag } from './index'
 
-
+/** 文章模型属性类型定义 */
 export interface PostAttributes {
+    /** 文章ID */
     id: number;
-    short_id: string;                           // 短id，用于创建短链接
-    title: string;                              // 标题
-    post_path: string | null;                          // 内容路径
-    description?: string | null;                // 文章描述
-    author_id?: number;                         // 作者id
-    status: 'draft' | 'published'; // 状态
-    cover_path?: string | null;                // 封面图片
-    image_paths?: string[] | null;               // 富文本内图片(JSON数组)
+    /** 文章短ID，用于访问文章 */
+    short_id: string;
+    /** 文章标题 */
+    title: string;
+    /** 文章描述 */
+    description?: string | null;
+    /** 文章内容 */
+    content?: string | null;
+    /** 文章作者ID */
+    author_id?: number;
+    /** 文章状态 */
+    status: 'draft' | 'published';
+    /** 封面图片 */
+    cover_path?: string | null;
+    /** 文章内插入图片的图片地址列表，JSON数组 */
+    image_paths?: string[] | null;
+    /** 创建时间 */
     created_at: Date;
+    /** 更新时间 */
     updated_at: Date;
 }
 
@@ -23,17 +34,14 @@ interface PostCreationAttributes extends Optional<
     'id' | 'short_id' | 'author_id' | 'created_at' | 'updated_at' | 'image_paths' | 'description'
 > { }
 
-//这里 Model<A, B> 的两个泛型参数：
-// A = PostAttributes 👉 表示 数据库里一条记录的完整样子
-// B = PostCreationAttributes 👉 表示 创建时可以省略的字段
-// 而 implements PostAttributes 是告诉 TypeScript：
-// Post 这个类实例会拥有所有 PostAttributes 里的属性。
+
+/** 文章模型 */
 export class Post extends Model<PostAttributes, PostCreationAttributes> implements PostAttributes {
     public id!: number;
     public short_id!: string;
     public title!: string;
-    public post_path!: string | null;
     public description?: string | null;
+    public content!: string;
     public author_id!: number;
     public status!: 'draft' | 'published';
     public cover_path?: string | null;
@@ -46,7 +54,7 @@ export class Post extends Model<PostAttributes, PostCreationAttributes> implemen
         options?: {
             transaction?: Transaction
         }
-    ): Promise<number> { 
+    ): Promise<number> {
         const useTransaction = options?.transaction ?? await sequelize.transaction();
         try {
             // 先删除关联，自动更新分类和标签计数
@@ -94,19 +102,18 @@ Post.init({
         },
         comment: "文章标题"
     },
-    post_path: {
-        type: DataTypes.STRING(255),
-        allowNull: true,
-        defaultValue: null,
-        comment: '文章内容路径',
-    },
     description: {
         type: DataTypes.STRING(255),
-        allowNull: true,
+        allowNull: false,
         validate: {
             len: [0, 255],
         },
         comment: "文章描述"
+    },
+    content: {
+        type: DataTypes.TEXT('long'),
+        allowNull: true,
+        comment: "文章内容( Markdown 或者 HTML )"
     },
     author_id: {
         type: DataTypes.INTEGER.UNSIGNED,
@@ -167,8 +174,16 @@ Post.init({
         },
     ],
     hooks: {
+        beforeValidate: (post) => {
+            // 只有 published 状态要求 content 非空
+            if (post.status === 'published') {
+                if (!post.content || post.content.trim() === '') { 
+                    throw new Error('已发布的文章内容不能为空');
+                }
+            }
+        },
         afterCreate: async (post: Post) => {
-            
+
         },
         beforeUpdate: (post: Post) => {
             // 更新时自动更新时间
