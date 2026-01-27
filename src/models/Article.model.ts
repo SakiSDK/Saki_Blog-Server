@@ -11,9 +11,11 @@ export interface PostAttributes {
     /** 文章标题 */
     title: string;
     /** 文章描述 */
-    description?: string | null;
+    description: string | null;
     /** 文章内容 */
-    content?: string | null;
+    content: string | null;
+    /** 文章优先级，默认值为0 */
+    priority?: number;
     /** 文章作者ID */
     author_id?: number;
     /** 文章状态 */
@@ -31,7 +33,7 @@ export interface PostAttributes {
 // 定义创建属性，让一些必要的属性变为可选，有数据库自动生成
 interface PostCreationAttributes extends Optional<
     PostAttributes,
-    'id' | 'short_id' | 'author_id' | 'created_at' | 'updated_at' | 'image_paths' | 'description'
+    'id' | 'short_id' | 'author_id' | 'created_at' | 'updated_at' | 'image_paths' | 'description' | 'priority'
 > { }
 
 
@@ -40,8 +42,9 @@ export class Post extends Model<PostAttributes, PostCreationAttributes> implemen
     public id!: number;
     public short_id!: string;
     public title!: string;
-    public description?: string | null;
+    public description!: string | null;
     public content!: string;
+    public priority?: number;
     public author_id!: number;
     public status!: 'draft' | 'published';
     public cover_path?: string | null;
@@ -104,7 +107,7 @@ Post.init({
     },
     description: {
         type: DataTypes.STRING(255),
-        allowNull: false,
+        allowNull: true,
         validate: {
             len: [0, 255],
         },
@@ -114,6 +117,12 @@ Post.init({
         type: DataTypes.TEXT('long'),
         allowNull: true,
         comment: "文章内容( Markdown 或者 HTML )"
+    },
+    priority: {
+        type: DataTypes.INTEGER.UNSIGNED,
+        allowNull: false,
+        defaultValue: 0,
+        comment: "文章优先级"
     },
     author_id: {
         type: DataTypes.INTEGER.UNSIGNED,

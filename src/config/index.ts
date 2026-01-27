@@ -13,10 +13,13 @@ import ossConfig from './oss.config'
 import emailConfig from './email.config'
 import uploadConfig from './upload.config'
 import sessionConfig from './session.config'
+import saltConfig from './salt.config'
 
 
 export const config = {
     ...serverConfig,
+    /** 盐值配置 */
+    salt: saltConfig,
     /** 数据库配置 */
     database: databaseConfig,
     /** 会话配置 */

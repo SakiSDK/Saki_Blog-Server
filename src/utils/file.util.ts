@@ -107,9 +107,19 @@ const isImageTypeAllowed = (mimeType: string): boolean => {
  * @param mimeType 文件的 MIME 类型
  * @returns 是否允许
  */
-export const isFileTypeAllowed = (mimeType: string): boolean => {
-  return config.upload.allowedFileTypes.includes(mimeType);
+export const isDocumentTypeAllowed = (mimeType: string): boolean => {
+  return config.upload.allowedDocumentTypes.includes(mimeType);
 }
+/**
+ * 检查文件 MIME 类型是否被系统允许（音乐等）
+ * @param mimeType 文件的 MIME 类型
+ * @returns 是否允许
+ */
+export const isMusicTypeAllowed = (mimeType: string): boolean => {
+  return config.upload.allowedMusicTypes.includes(mimeType);
+}
+
+
 
 /**
  * 检查文件大小是否在允许范围内（服务端二次校验）
@@ -178,7 +188,7 @@ const generateSafeFilename = (
     base = `${base}_${hash}`;
   }
 
-  return `${base}${ext}`;
+  return `${base}`;
 };
 
 /**
@@ -222,9 +232,11 @@ const formatFileSize = (bytes: number): string => {
  */
 const ensureDirExists = async (dirPath: string): Promise<void> => {
   try {
-    await fs.promises.access(dirPath);
-  } catch (error) {
     await fs.promises.mkdir(dirPath, { recursive: true });
+  } catch (err: any) {
+    // 已存在 → 忽略
+    if (err.code === 'EEXIST') return;
+    throw err;
   }
 };
 
@@ -377,21 +389,23 @@ const getFileInfo = (file: Express.Multer.File) => {
  * @returns 公开 URL（如 '/uploads/posts/2025/01/xxx.avif'）
  * @note 要求 Express 已配置静态资源路由指向 uploads 目录
  */
-const generateUrlFromPath = (filePath: string, isTemp: boolean = false): string => {
-  const rootPath = isTemp && config.upload.tempDir ? config.upload.tempDir : config.upload.rootPath;
-  const baseUrl = process.env.FILE_BASE_URL || '/uploads';
-  
-  // 计算相对路径
-  let relativePath = path.relative(rootPath, filePath);
-  
-  // 如果是临时文件，可能需要特殊的前缀，或者假设临时文件也在 uploads 目录下但不同子目录
-  // 这里假设所有 web 可访问文件都挂载在 baseUrl 下
-  // 如果临时目录不在 web 根目录下，这个 URL 可能无法访问（除非有专门的路由处理临时文件）
+const generateUrlFromPath = (
+  filePath: string,
+  isTemp: boolean = false
+): string => {
+  const rootPath =
+    isTemp && config.upload.tempDir
+      ? config.upload.tempDir
+      : config.upload.rootPath;
+  const relativePath = path
+    .relative(rootPath, filePath)
+    .split(path.sep)
+    .join('/');
   
   // 统一路径分隔符
-  const urlPath = relativePath.split(path.sep).join('/');
+  const baseUrl = config.serverUrl.replace(/\/$/, '');
   
-  return path.posix.join(baseUrl, isTemp ? 'temp' : '', urlPath).replace(/\/+/g, '/');
+  return `${baseUrl}/uploads${isTemp ? '/temp' : ''}/${relativePath}`
 };
 
 /**

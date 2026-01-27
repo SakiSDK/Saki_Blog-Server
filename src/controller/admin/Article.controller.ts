@@ -7,6 +7,7 @@ export class ArticleController {
   public static async createArticle(req: Request, res: Response) {
     try {
       const {
+        authorId,
         title,
         description,
         status,

@@ -4,10 +4,10 @@ import { sequelize } from './sequelize'
 import { JwtService, JwtPayload } from '@/libs/jwt'
 import {
     UnauthorizedError
-} from '../utils/errors'
-import { config } from '../config/index';
+} from '@/utils/errors'
+import { config } from '@/config/index';
 import crypto from 'crypto'
-import { ShortIdUtil } from '../utils/shortId.util'
+import { createShortIdCodec } from '@/utils/shortId.codec'
 
 
 /** 安全用户信息（登录后返回） */
@@ -197,7 +197,8 @@ export class User extends Model<UserAttributes, UserCreationAttributes> implemen
         // 生成对应的shortId，并保存userId
         // 生成short_id（统一在create后处理，或移到beforeCreate）
         if (!user.short_id) {
-            const shortId = ShortIdUtil.encodeUserId(user.id);
+            const { encode } = createShortIdCodec(config.salt.user);
+            const shortId = encode(user.id);
             await user.update({ short_id: shortId });
         }
 

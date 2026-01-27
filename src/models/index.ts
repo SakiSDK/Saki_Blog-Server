@@ -8,8 +8,8 @@ import { Photo } from './Photo.model';
 import { Category } from './Category.model';
 import { Tag } from './Tag.model';
 import { Post } from './Article.model';
-import { PostTag } from './PostTag.model';
-import { PostCategory } from './PostCategory.model';
+import { PostTag } from './ArticleTag.model';
+import { PostCategory } from './ArticleCategory.model';
 import { Comment } from './Comment.model';
 
 

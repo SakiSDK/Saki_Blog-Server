@@ -1,4 +1,4 @@
-import { PostTag } from '@/models/PostTag.model';
+import { PostTag } from '@/models/ArticleTag.model';
 import { sequelize } from '@/models/index';
 import { Tag } from '@/models/Tag.model'
 import { BadRequestError, NotFoundError } from '@/utils/errors'

@@ -12,7 +12,9 @@ export interface UploadConfig {
   /** 允许的图片类型（服务端校验） */
   allowedImageTypes: string[]
   /** 允许的文件类型（服务端校验） */
-  allowedFileTypes: string[]
+  allowedDocumentTypes: string[]
+  /** 允许的音乐类型（服务端校验） */
+  allowedMusicTypes: string[]
   /** 允许的文件扩展名（前端校验） */
   allowedExtensions: string[]
   /** 文件名生成策略 */
@@ -28,27 +30,33 @@ export interface UploadConfig {
 }
 
 
-/** ---------- 上传配置项 ---------- */
+/** ---------- 上传配置项 ----------/** 上传配置项 */
 const config: UploadConfig = {
-  rootPath: path.resolve(process.env.UPLOAD_PATH || './uploads'),
+  // 修正：默认指向 public/uploads 以匹配 app.ts 的静态资源服务
+  rootPath: path.resolve(process.env.UPLOAD_PATH || './public/uploads'),
   maxFileSize: parseInt(process.env.UPLOAD_MAX_FILE_SIZE || '5242880', 10),
   maxFileCount: parseInt(process.env.UPLOAD_MAX_FILE_COUNT || '10', 10),
   allowedImageTypes: (
     process.env.UPLOAD_ALLOWED_IMAGE_TYPES
     || 'image/jpeg,image/png,image/gif,image/webp,image/svg+xml,image/avif'
   ).split(','),
-  allowedFileTypes: (
-    process.env.UPLOAD_ALLOWED_FILE_TYPES
+  allowedDocumentTypes: (
+    process.env.UPLOAD_ALLOWED_DOCUMENT_TYPES
     || 'application/pdf,application/msword,application/plain'
+  ).split(','),
+  /** 允许的音乐类型（服务端校验） */
+  allowedMusicTypes: (
+    process.env.UPLOAD_ALLOWED_MUSIC_TYPES
+    || 'audio/mpeg, audio/mp3, audio/wav, audio/x-wav'
   ).split(','),
   allowedExtensions: (
     process.env.UPLOAD_ALLOWED_EXTENSIONS
-    || 'jpg,jpeg,png,gif,webp,svg,pdf,md'
+    || 'jpg,jpeg,png,gif,webp,svg,pdf,md,docx,doc,markdown'
   ).split(','),
   filenameStrategy: (
     process.env.UPLOAD_FILENAME_STRATEGY as UploadConfig['filenameStrategy'])
     || 'uuid',
-  tempDir: path.resolve(process.env.UPLOAD_TEMP_DIR || './temp'),
+  tempDir: path.resolve(process.env.UPLOAD_TEMP_DIR || './public/uploads/temp'),
   useHash: process.env.UPLOAD_USE_HASH === 'true',
   storageSubdir: process.env.UPLOAD_STORAGE_SUBDIR || 'images',
   enableCompression: process.env.UPLOAD_ENABLE_COMPRESSION === 'true',
