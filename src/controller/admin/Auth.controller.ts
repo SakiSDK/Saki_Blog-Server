@@ -1,7 +1,6 @@
 import { AuthService } from '@/services/Auth.service';
 import { config } from '@/config';
 import { Request, Response } from 'express';
-import camelcaseKeys from 'camelcase-keys';
 
 
 export class AuthController {
@@ -68,7 +67,7 @@ export class AuthController {
         data: {
           accessToken: tokens.accessToken,
           expiresIn: config.jwt.accessExpiresIn * 1000,
-          user: camelcaseKeys(user, { deep: true })
+          user: user
         }
       });
     } catch (error) {

@@ -4,7 +4,7 @@ import type { Pagination } from "../app";
 // 定义返回的Tag类型
 export type TagListItem = Pick<
   Tag,
-  'id' | 'name' | 'description' | 'post_count' | 'order' | 'status' | 'created_at' | 'updated_at'
+  'id' | 'name' | 'description' | 'postCount' | 'order' | 'status' | 'createdAt' | 'updatedAt'
 >
 
 // 定义出参类型

@@ -2,7 +2,6 @@
 // import { Request, Response, NextFunction } from 'express';
 // import { UserService } from '../services/User.service';
 // import { BadRequestError } from '../utils/errors';
-// import camelcaseKeys from 'camelcase-keys';
 // import {
 //     changePasswordBodySchema, changePasswordParamsSchema, createUserSchema,
 //     deleteUserSchema, getUserByIdSchema, getUserListSchema,
@@ -47,7 +46,7 @@
 //             res.status(200).json({
 //                 message: '获取用户列表成功',
 //                 data: users.map(
-//                     user => camelcaseKeys(user.get({plain: true}), { deep: true })  // 传给前端的数据转化为驼峰命名
+//                     user => user.get({plain: true})  // 传给前端的数据转化为驼峰命名
 //                 ),
 //                 pagination: {
 //                     page,
@@ -77,7 +76,7 @@
 //             const user = await UserService.getUserById(value.id);
 //             res.status(200).json({
 //                 message: '获取用户信息成功',
-//                 data: camelcaseKeys(user.get({ plain: true }), { deep: true })
+//                 data: user.get({ plain: true })
 //             });
 //         } catch (error: any) {
 //             res.status(error.status).json({
@@ -100,7 +99,7 @@
 //             const user = await UserService.createUser(value);
 //             res.status(201).json({
 //                 message: '用户创建成功',
-//                 data: camelcaseKeys(user.get({plain: true}), {deep: true}),
+//                 data: user.get({plain: true}),
 //             });
 //         } catch (error: any) {
 //             console.log(`[user.controller.createUser]: ${error.message}`)

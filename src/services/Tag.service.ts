@@ -1,4 +1,4 @@
-import { PostTag } from '@/models/ArticleTag.model';
+import { ArticleTag } from '@/models/ArticleTag.model';
 import { sequelize } from '@/models/index';
 import { Tag } from '@/models/Tag.model'
 import { BadRequestError, NotFoundError } from '@/utils/errors'
@@ -7,8 +7,74 @@ import type { Pagination } from '@/types/app';
 import { HotTagResult } from '@/types/models/tag.type';
 import { HotTagParams } from '@/schemas/web/tag.schema';
 import { TagCreateBody, TagListQuery } from '@/schemas/admin/tag.schema';
+import { buildListQuery } from '@/utils/query.util';
 
 export class TagService {
+  /** 
+   * 验证标签是否存在
+   * @param id 标签ID
+   * @returns {Promise<void>} 标签是否存在
+   */
+  public static async validateTagExists(id: number, transaction?: Transaction): Promise<void> {
+
+    // 参数校验
+    if (
+      typeof id !== 'number' ||
+      !Number.isInteger(id) ||
+      id <= 0 || 
+      !isFinite(id)
+    ) {
+      throw new BadRequestError('标签ID必须是一个大于0的整数');
+    };
+    
+    // 使用 count 做存在性判断（最轻量）
+    const count = await Tag.count({
+      where: {
+        id,
+        status: 'active'
+      },
+      transaction: transaction ?? null,
+    });
+
+    if (count === 0) {
+      throw new NotFoundError('标签不存在');
+    }
+  }
+
+  /** 
+   * 校验标签是否全部存在
+   * @param ids 标签ID列表
+   * @returns {Promise<void>} 是否全部存在
+   */
+  public static async validateTagsExist(ids: number[], transaction?: Transaction): Promise<void> {
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new BadRequestError('标签ID列表不能为空');
+    };
+
+    // 去重 + 过滤非法 ID
+    const validIds = Array.from(
+      new Set(ids.filter(id => Number.isInteger(id) && id > 0))
+    )
+
+    if (validIds.length === 0) {
+      throw new BadRequestError('标签ID列表不能为空');
+    }
+    
+    const count = await Tag.count({
+      where: {
+        id: {
+          [Op.in]: validIds
+        },
+        status: 'active',
+      },
+      transaction: transaction ?? null,
+    });
+
+    if (count !== validIds.length) {
+      throw new BadRequestError('部分标签不存在, 请检查标签ID');
+    }
+  }
+
   /** 
    * 获取所有标签
    */
@@ -18,7 +84,10 @@ export class TagService {
       where: {
         status: 'active'
       },
-      order:[['order', 'DESC']]
+      order: [
+        ['order', 'DESC'],
+        ['id', 'ASC'], // 保证顺序稳定
+      ]
     });
   }
   /**
@@ -59,7 +128,7 @@ export class TagService {
       slug: rawSlug,
       description: data.description?.trim() || null,
       order: data.order ? Number(data.order) : 0,
-      post_count: 0, // 初始无关联文章，计数为0
+      postCount: 0, // 初始无关联文章，计数为0
     });
     return tag;
   }
@@ -136,7 +205,7 @@ export class TagService {
       }
       const tagName = tag.name;
       // 先删除中间表(PostTag)的关联记录
-      const postTagCount: number = await PostTag.deleteByTagId(id, {
+      const postTagCount: number = await ArticleTag.deleteByTagId(id, {
         transaction
       });
       // 再删除标签本身
@@ -159,67 +228,25 @@ export class TagService {
     tags: Tag[],
     pagination: Pagination,
   }> {
-    // 处理默认参数
-    const {
-      id,
-      status,
-      keyword,
-      // 时间参数
-      createdFrom,
-      createdTo,
-      // 排序参数
-      orderBy = 'created_at',
-      sort = 'desc',
-      page = 1,
-      pageSize = 10,
-    } = query;
-    const offset = (page - 1) * pageSize;
-    
-    // 构建筛选条件
-    const whereConditions: any = {};
-    if (id) {
-      whereConditions.id = Number(id);
-    }
-    if (status) {
-      whereConditions.status = status;
-    }
-    /** ---------- keyword 搜索 ---------- */
-    if (keyword?.trim()) {
-      const kw = keyword.trim();
-      whereConditions[Op.or] = [
-        { name: { [Op.like]: `%${kw}%` } },
-        { description: { [Op.like]: `%${kw}%` } }
-      ];
-    }
-    /** ---------- 时间参数 ---------- */
-    if (createdFrom || createdTo) {
-      whereConditions.created_at = {};
-
-      // >= 某时间
-      if (createdFrom) {
-        whereConditions.created_at[Op.gte] = new Date(createdFrom);
-      }
-
-      // <= 某时间
-      if (createdTo) {
-        whereConditions.created_at[Op.lte] = new Date(createdTo);
-      }
-    }
-
-    // 执行分页查询
-    const { count, rows } = await Tag.findAndCountAll({
-      where: whereConditions,
-      order: [[orderBy, sort.toUpperCase()]],
-      offset,
-      limit: pageSize,
-      raw: true
+    // 1. 构建通用查询条件
+    const { where, order, offset, limit, page, pageSize } = buildListQuery(query, {
+      searchFields: ['name', 'description'],
+      exactFields: ['id', 'status'],
     });
 
-    // 返回分页结果
+    // 2. 执行分页查询
+    const { count, rows } = await Tag.findAndCountAll({
+      where,
+      order: order as any,
+      offset,
+      limit,
+    });
+
+    // 3. 返回分页结果
     return {
       tags: rows,
       pagination: {
-        page: page,
+        page,
         pageSize,
         total: count,
         totalPages: Math.ceil(count / pageSize),
@@ -232,14 +259,14 @@ export class TagService {
    */
   public static async getHotTags(query: HotTagParams): Promise<HotTagResult> {
     const { pageSize = 10, withPostCount = true } = query;
-    const attributes = ['id', 'name', 'slug', 'description', 'order', 'created_at'];
+    const attributes = ['id', 'name', 'slug', 'description', 'order', 'createdAt'];
     if (withPostCount) {
-      attributes.push('post_count');
+      attributes.push('postCount');
     }
     const tags = await Tag.findAndCountAll({
       attributes,
       limit: pageSize,
-      order: [['post_count', 'DESC']],
+      order: [['postCount', 'DESC']],
       distinct: true,
       raw: true,
     })
@@ -295,7 +322,7 @@ export class TagService {
       });
       // 业务校验（一个都没删）
       if (deletedCount === 0) {
-        throw new Error('未找到可删除的标签');
+        throw new NotFoundError('未找到可删除的标签');
       }
       // 提交事务
       await transaction.commit();

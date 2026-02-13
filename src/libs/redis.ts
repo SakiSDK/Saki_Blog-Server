@@ -1,6 +1,7 @@
 import Redis from 'ioredis';
 import { config } from '@/config';
 import { Store, SessionData } from 'express-session';
+import { InternalServerError } from '@/utils/errors';
 
 
 /** ---------- 类型定义 ---------- */
@@ -13,7 +14,7 @@ export const redisClient = new Redis({
   keyPrefix: config.redis.prefix,
   connectTimeout: 5000,
   retryStrategy: (times) => {
-    if (times > 3) throw new Error('Redis 连接重试超过 3 次')
+    if (times > 3) throw new InternalServerError('Redis 连接重试超过 3 次')
     return times * 1000;
   }
 })

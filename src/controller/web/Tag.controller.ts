@@ -2,7 +2,6 @@ import { TagService } from "../../services/Tag.service";
 import { Request, Response } from "express";
 import type { HotTagParams, TagListQuery } from "../../schemas/web/tag.schema";
 import type { TagListResult, HotTagResult } from "../../types/models/tag.type";
-import camelcaseKeys from "camelcase-keys";
 
 export class TagController { 
   public static async getTagList(req: Request, res: Response){
@@ -23,9 +22,7 @@ export class TagController {
         success: true,
         message: "获取标签列表成功",
         data: {
-          list: tags.map((tag) => {
-            return camelcaseKeys(tag, { deep: true });
-          }), // 统一列表字段名
+          list: tags, // 统一列表字段名
           pagination: {
             ...pagination,
             hasNext: pagination.page < pagination.totalPages, // 新增：是否有下一页（可选）
@@ -67,18 +64,12 @@ export class TagController {
       const result: HotTagResult = await TagService.getHotTags(params);
       const { tags } = result;
 
-      // 3. 数据处理（统一小驼峰命名 + 按需过滤字段）
-      const formattedTags = tags.map((tag) => {
-        const camelTag = camelcaseKeys(tag, { deep: true });
-        return camelTag;
-      });
-
       res.status(200).json({
         code: 200,
         success: true,
         message: "获取热门标签成功",
         data: {
-          list: formattedTags, // 统一用list字段，与列表接口一致
+          list: tags, // 统一用list字段，与列表接口一致
         },
       });
     } catch (error) {

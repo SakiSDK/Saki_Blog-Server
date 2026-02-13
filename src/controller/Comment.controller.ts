@@ -3,9 +3,8 @@
 // import { BadRequestError } from '../utils/errors';
 // import { ShortIdUtil } from '../utils/shortIdUtil'
 // import { AuthenticatedRequest } from '../middlewares/auth';
-// import camelcaseKeys from 'camelcase-keys'
 
-// // 工具函数：提取用户真实IP（处理代理场景）
+// // // 工具函数：提取用户真实IP（处理代理场景）
 // const getClientIp = (req: Request): string => {
 //     const xForwardedFor = req.headers["x-forwarded-for"] as string;
 //     if (xForwardedFor) {
@@ -44,7 +43,7 @@
 //             }, userId);
 //             res.status(201).json({
 //                 message: '评论成功',
-//                 data: camelcaseKeys(result, { deep: true }),
+//                 data: result,
 //             })
 //         } catch (error: any) {
 //             console.log('[CommentController.createComment]评论失败，: ', error.message);
@@ -88,7 +87,7 @@
 
 //             res.status(200).json({
 //                 message: '获取评论成功',
-//                 data: camelcaseKeys(result.data, {deep: true}),
+//                 data: result.data,
 //                 paginations: result.pagination,
 //             });
 //         } catch (error: any) {

@@ -1,6 +1,6 @@
 import { BadRequestError, NotFoundError } from "../utils/errors";
 import { Op, Transaction } from "sequelize";
-import { sequelize, Category, PostCategory } from "../models/index";
+import { sequelize, Category, ArticleCategory } from "../models/index";
 import type { Pagination } from "../types/app";
 import { CategoryListQuery } from '@/schemas/admin/category.schema';
 
@@ -20,6 +20,66 @@ export interface CategoryCreateInput {
  * 职责：封装业务规则、数据校验、事务管理，与数据模型交互完成业务流程
  */
 export class CategoryService {
+  /** 
+   * 验证分类字段是否存在
+   * @param {number} id 分类ID
+   * @returns {Promise<void>} 分类字段是否存在
+   */
+  public static async validateCategoryExists(id: number, transaction?: Transaction): Promise<void> {
+    // 参数校验
+    if (!Number.isInteger(id) || id <= 0) {
+      throw new BadRequestError('分类ID必须是一个大于0的整数');
+    }
+    // 查询分类字段是否存在
+    const category = await Category.findOne({
+      where: {
+        id,
+        status: 'active'
+      },
+      transaction: transaction ?? null,
+    });
+    if (!category) {
+      throw new NotFoundError('分类不存在');
+    }
+  }
+  
+  /** 
+   * 验证所有分类字段是否存在
+   * @param {number[]} ids 分类ID列表
+   * @returns {Promise<void>} 所有分类字段是否存在
+   */
+  public static async validateCategoriesExist(ids: number[], transaction?: Transaction): Promise<void> {
+    // 参数校验
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new BadRequestError('分类ID列表不能为空');
+    }
+
+    // 去重 + 过滤非法 ID
+    const validIds = Array.from(
+      new Set(ids.filter(id => Number.isInteger(id) && id > 0))
+    )
+
+    if (validIds.length === 0) {
+      throw new BadRequestError('分类ID列表包含无效的分类ID');
+    }
+
+    // 查询所有分类字段是否存在
+    const categories = await Category.findAll({
+      where: {
+        id: {
+          [Op.in]: validIds
+        },
+        status: 'active'
+      },
+      transaction: transaction ?? null,
+    });
+
+
+    if (categories.length !== validIds.length) {
+      throw new NotFoundError('分类ID列表包含不存在的分类ID');
+    }
+  }
+  
   /**
    * 获取所有活跃分类
    * @returns 包含所有活跃分类的数组
@@ -27,7 +87,10 @@ export class CategoryService {
   public static async getAllCategories(): Promise<Category[]> {
     return Category.findAll({
       attributes: ['id', 'name'],
-      order: [['order', 'DESC']],
+      order: [
+        ['order', 'DESC'],
+        ['id', 'ASC'], // 保证顺序稳定
+      ],
       where: {
         status: 'active'
       }
@@ -69,7 +132,7 @@ export class CategoryService {
       description: data.description?.trim() || null,
       order: data.order || 0,
       slug: rawSlug,
-      post_count: 0,
+      postCount: 0,
     });
     return category;
   }
@@ -92,12 +155,12 @@ export class CategoryService {
         throw new NotFoundError('分类不存在');
       }
       const categoryName = category.name;
-      const postCategoryCount = await PostCategory.deleteByCategoryId(id, {
+      const articleCategoryCount = await ArticleCategory.deleteByCategoryId(id, {
         transaction
       });
       await category.destroy();
       transaction.commit();
-      return { message: `标签${categoryName}已经删除，删除了${postCategoryCount}条关联关系` };
+      return { message: `分类${categoryName}已经删除，删除了${articleCategoryCount}条关联关系` };
     } catch (error) {
       await transaction.rollback();
       throw error;
@@ -127,7 +190,7 @@ export class CategoryService {
       });
       // 业务校验（一个都没删）
       if (deletedCount === 0) {
-        throw new Error('未找到可删除的分类');
+        throw new NotFoundError('未找到可删除的分类');
       }
       await transaction.commit();
       return {
@@ -163,7 +226,7 @@ export class CategoryService {
       page = 1,
       pageSize = 10,
       // 排序参数
-      orderBy = 'created_at',
+      orderBy = 'createdAt',
       sort = 'desc',
     } = query;
     const offset: number = (page - 1) * pageSize;
@@ -186,13 +249,13 @@ export class CategoryService {
       whereConditions.status = status;
     }
     if (createdFrom) {
-      whereConditions.created_at = {
+      whereConditions.createdAt = {
         [Op.gte]: new Date(createdFrom),
       };
     }
     if (createdTo) {
-      whereConditions.created_at = {
-        ...whereConditions.created_at,
+      whereConditions.createdAt = {
+        ...whereConditions.createdAt,
         [Op.lte]: new Date(createdTo),
       };
     }
@@ -203,7 +266,6 @@ export class CategoryService {
       where: whereConditions,
       offset,
       limit: pageSize,
-      raw: true,
     });
 
     // 返回分页结果

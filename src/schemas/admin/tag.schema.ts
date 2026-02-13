@@ -31,7 +31,7 @@ export const TagListQuerySchema = z.object({
   createdFrom: zDateTimeStr.optional().describe("创建开始时间"),
   createdTo: zDateTimeStr.optional().describe("创建结束时间"),
   // 排序参数
-  orderBy: z.enum(['id', 'order', 'post_count', 'created_at', 'updated_at']).optional().describe("排序字段"),
+  orderBy: z.enum(['id', 'order', 'postCount', 'createdAt', 'updatedAt']).optional().describe("排序字段"),
   sort: z.enum(['asc', 'desc']).optional().describe("排序方式")
 })
 

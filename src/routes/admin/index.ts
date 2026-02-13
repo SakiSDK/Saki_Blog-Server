@@ -1,15 +1,9 @@
 import { Router } from "express";
-// import UserAdminRoute from './user.router'
-// import AmapAdminRoute from './amap.router'
 import AuthAdminRoute from "./auth.router";
 import TagRoute from "./tag.router";
 import CategoryRoute from "./category.router";
 import UploadRoute from "./upload.router";
-// import AlbumAdminRoute from "./album.router";
-// import PhotoAdminRoute from './photo.router'
-// import CategoryAdminRoute from "./category.router";
-// import PostAdminRoute from "./post.router";
-// import { authenticateToken, requireRole } from "../../middlewares/auth";
+import ArticleRoute from "./article.router";
 
 const router: Router = Router();
 
@@ -20,12 +14,9 @@ router.use('/auth', AuthAdminRoute)
 // router.use(authenticateToken);
 // router.use(requireRole(['admin']));
 
-// router.use('/user', UserAdminRoute)
-// router.use('/amap', AmapAdminRoute)
-// router.use('/album', AlbumAdminRoute)
 router.use('/tag', TagRoute) 
 router.use('/category', CategoryRoute)
 router.use('/upload', UploadRoute)
-// router.use('/post', PostAdminRoute)
+router.use('/article', ArticleRoute)
 
 export default router;

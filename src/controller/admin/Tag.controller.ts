@@ -1,25 +1,18 @@
 import { TagService } from "@/services/Tag.service";
 import { Request, Response } from "express";
 import type { TagListResult } from "@/types/models/tag.type";
-import camelcaseKeys from "camelcase-keys";
 
 
 export class TagController { 
   public static async getAllTags(req: Request, res: Response) {
     try {
-      console.log('获取所有标签');
       const tags = await TagService.getAllTags();
       res.status(200).json({
         code: 200,
         success: true,
         message: "获取所有标签成功",
         data: {
-          list: tags.map((tag) => {
-            return camelcaseKeys(
-              tag.get({ plain: true }),
-              { deep: true }
-            );
-          })
+          list: tags
         }
       });
     } catch (error) {
@@ -47,10 +40,7 @@ export class TagController {
         code: 201,
         success: true,
         message: "标签创建成功",
-        data: camelcaseKeys(
-          createdTag.get({ plain: true }),
-          { deep: true }
-        ),
+        data: createdTag,
       });
     } catch (error) {
       console.error("创建标签失败：", error);
@@ -87,8 +77,8 @@ export class TagController {
             ? (sort as "asc" | "desc")
             : undefined,
         orderBy:
-          ['id', 'order', 'post_count', 'created_at', 'updated_at'].includes(orderBy as string)
-            ? (orderBy as 'id' | 'order' | 'post_count' | 'created_at' | 'updated_at') // 明确断言
+          ['id', 'order', 'postCount', 'createdAt', 'updatedAt'].includes(orderBy as string)
+            ? (orderBy as 'id' | 'order' | 'postCount' | 'createdAt' | 'updatedAt') // 明确断言
             : undefined
       }
       const searchResult = await TagService.getTagList(query);
@@ -98,9 +88,7 @@ export class TagController {
         success: true,
         message: "搜索标签成功",
         data: {
-          list: tags.map((tag) => {
-            return camelcaseKeys(tag, { deep: true });
-          }),
+          list: tags,
           pagination: {
             ...pagination,
             hasNext: pagination.page < pagination.totalPages,
@@ -134,31 +122,32 @@ export class TagController {
   }
   public static async getTagList(req: Request, res: Response) {
     try {
-      const {
-        keyword, id, status,
-        startTime, endTime,
-        page, pageSize, sort, orderBy,
-      } = req.query;
-      // 类型转换并设置默认值
-      const pageNum: number = Number(page) || 1;
-      const size: number = Number(pageSize) || 10;
-      const query = {
-        id: id ? Number(id) : undefined,
-        keyword: typeof keyword === 'string' ? keyword : undefined,
-        status: ['active', 'inactive'].includes(status as string) ? (status as "active" | "inactive") : undefined,
-        createdFrom: typeof startTime === 'string' ? startTime : undefined,
-        createdTo: typeof endTime === 'string' ? endTime : undefined,
-        page: pageNum,
-        pageSize: size,
-        sort:
-          ['asc', 'desc'].includes(sort as string)
-            ? (sort as "asc" | "desc")
-            : "desc",
-        orderBy:
-          ['id', 'order', 'post_count', 'created_at', 'updated_at'].includes(orderBy as string)
-            ? (orderBy as 'id' | 'order' | 'post_count' | 'created_at' | 'updated_at') // 明确断言
-            : "created_at"
-      }
+      // const {
+      //   keyword, id, status,
+      //   startTime, endTime,
+      //   page, pageSize, sort, orderBy,
+      // } = req.query;
+      const query = req.query;
+      // // 类型转换并设置默认值
+      // const pageNum: number = Number(page) || 1;
+      // const size: number = Number(pageSize) || 10;
+      // const query = {
+      //   id: id ? Number(id) : undefined,
+      //   keyword: typeof keyword === 'string' ? keyword : undefined,
+      //   status: ['active', 'inactive'].includes(status as string) ? (status as "active" | "inactive") : undefined,
+      //   createdFrom: typeof startTime === 'string' ? startTime : undefined,
+      //   createdTo: typeof endTime === 'string' ? endTime : undefined,
+      //   page: pageNum,
+      //   pageSize: size,
+      //   sort:
+      //     ['asc', 'desc'].includes(sort as string)
+      //       ? (sort as "asc" | "desc")
+      //       : "desc",
+      //   orderBy:
+      //     ['id', 'order', 'postCount', 'createdAt', 'updatedAt'].includes(orderBy as string)
+      //       ? (orderBy as 'id' | 'order' | 'postCount' | 'createdAt' | 'updatedAt') // 明确断言，避免类型错误
+      //       : "createdAt"
+      // }
 
       // 2. 调用服务层获取数据（类型安全约束）
       const result: TagListResult = await TagService.getTagList(query);
@@ -170,9 +159,7 @@ export class TagController {
         success: true,
         message: "获取标签列表成功",
         data: {
-          list: tags.map((tag) => {
-            return camelcaseKeys(tag, { deep: true });
-          }), // 统一列表字段名
+          list: tags, // 统一列表字段名
           pagination: {
             ...pagination,
             hasNext: pagination.page < pagination.totalPages, // 新增：是否有下一页（可选）
@@ -218,10 +205,7 @@ export class TagController {
         code: 200,
         success: true,
         message: "标签状态切换成功",
-        data: camelcaseKeys(
-          updatedTag.get({plain: true}),
-          { deep: true }
-        ),
+        data: updatedTag,
       });
     } catch (error) {
       console.error("切换标签状态失败：", error);
@@ -328,10 +312,7 @@ export class TagController {
         code: 200,
         success: true,
         message: "标签更新成功",
-        data: camelcaseKeys(
-          updatedTag.get({plain: true}),
-          { deep: true }
-        ),
+        data: updatedTag,
       })
     }catch (error) {
       console.error('更新标签失败：', error);

@@ -1,19 +1,22 @@
-import multer, { FileFilterCallback, MulterError, Options } from 'multer';
+import multer, { FileFilterCallback, Options } from 'multer';
 import path from 'path';
 import { config } from '@/config';
 import fs from 'fs';
 import { NextFunction, Request, RequestHandler, Response } from 'express';
 import {
-  compressImage, ensureDirExists, formatFileSize,
-  generateSafeFilename, isDocumentTypeAllowed, isImageTypeAllowed,
-  isMusicTypeAllowed
+  compressImage,
+  CompressOptions,
+} from '@/utils/image.util';
+import {
+  ensureDirExists, formatFileSize, generateSafeFilename,
+  isDocumentTypeAllowed, isImageTypeAllowed, isMusicTypeAllowed
 } from '@/utils/file.util';
 
 
 /** ---------- 上传中间件配置选项 ---------- */
 export interface UploadMiddlewareOptions {
   /** 单文件字段名或多文件字段配置 */
-  field: string | { name: string; maxCount?: number };
+  field: 'none' | string | { name: string; maxCount?: number };
   /** 最大文件大小 */
   maxSizeMB?: number;
   /** 是启用错误处理中间件 (默认: true) */
@@ -26,6 +29,21 @@ export interface UploadMiddlewareOptions {
   path?: string;
   /** 上传类型 */
   type?: 'image' | 'document' | 'music' | 'other' | 'common';
+  /** 压缩配置 */
+  compression?: {
+    /** 是否启用 (默认: true) */
+    enable?: boolean;
+    /** 压缩选项 */
+    options?: CompressOptions;
+  };
+}
+
+/** 上传配置选项 */
+interface UploadConfig {
+  /** 自定义存储路径 */
+  path?: string;
+  /** 其他配置 */
+  [key: string]: any;
 }
 
 /** ---------- 自定义错误类型 ---------- */
@@ -187,6 +205,94 @@ const createFileFilter = () => {
   }
 }
 
+/**
+ * 创建压缩和缩略图处理中间件
+ */
+const createCompressionMiddleware = (options: UploadMiddlewareOptions) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    // 1. 检查前端参数 compress (auto | off)
+    const compressParam = req.query.compress as string;
+    if (compressParam === 'off') {
+      return next();
+    }
+
+    // 2. 检查配置是否启用压缩
+    if (!options.compression?.enable) {
+      return next();
+    }
+
+    // 3. 获取文件列表
+    const files = req.file 
+      ? [req.file] 
+      : (Array.isArray(req.files) ? req.files : Object.values(req.files || {}).flat());
+
+    if (files.length === 0) return next();
+
+    try {
+      for (const file of files) {
+        // 仅处理图片
+        if (!file.mimetype.startsWith('image/')) continue;
+
+        const originalPath = file.path;
+        // 读取文件
+        const fileBuffer = await fs.promises.readFile(originalPath);
+        
+        // --- 压缩处理 ---
+        // 默认为 true (由上层检查保证)
+        try {
+             // 默认转为 webp 以获得更好兼容性和压缩率，或者使用配置的格式
+            const targetFormat = options.compression?.options?.format || 'webp';
+            const compressedBuffer = await compressImage(fileBuffer, {
+              format: targetFormat,
+              ...options.compression?.options
+            });
+
+            // 检查是否需要修改扩展名
+            const currentExt = path.extname(file.filename).toLowerCase().replace('.', '');
+            const newExt = targetFormat;
+            
+            // 如果压缩后大小反而变大，且格式未改变，则保留原文件
+            if (compressedBuffer.length > fileBuffer.length && currentExt === newExt) {
+              file.size = fileBuffer.length;
+              // 不做任何写入操作，直接继续
+            } else if (currentExt !== newExt) {
+              // 格式改变，必须写入（即使变大也写入，因为前端期望得到 avif）
+              // 或者您可以选择：如果变大太多，是否回退到原图？
+              // 这里我们假设如果格式变了，就必须转换。
+              
+              // 更新路径和文件名
+              const dir = path.dirname(originalPath);
+              const name = path.basename(originalPath, path.extname(originalPath));
+              const newFilename = `${name}.${newExt}`;
+              const newPath = path.join(dir, newFilename);
+
+              // 写入新文件
+              await fs.promises.writeFile(newPath, compressedBuffer);
+              // 删除旧文件
+              await fs.promises.unlink(originalPath);
+
+              // 更新 req.file 属性
+              file.path = newPath;
+              file.filename = newFilename;
+              file.mimetype = `image/${newExt}`;
+              file.size = compressedBuffer.length;
+            } else {
+              // 格式未变，且确实变小了（或强制覆盖）
+              // 覆盖原文件
+              await fs.promises.writeFile(originalPath, compressedBuffer);
+              file.size = compressedBuffer.length;
+            }
+          } catch (error) {
+            throw new FileCompressError(file.fieldname, file.originalname);
+          }
+      }
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+};
+
 /** 创建错误处理器 */
 const createErrorHandler = () => {
   return (
@@ -255,7 +361,8 @@ export const createUploadMiddleware = (options: UploadMiddlewareOptions): Reques
     storage,
     limits = {},
     path = 'default',
-    type = 'common'
+    type = 'common',
+    compression
   } = options;
 
   // 配置注入中间件
@@ -281,6 +388,11 @@ export const createUploadMiddleware = (options: UploadMiddlewareOptions): Reques
 
   // 上传核心中间件
   const uploadMiddleware: RequestHandler = (() => {
+    // 仅解析 FormData（无文件）
+    if (field === 'none') {
+      return upload.none();
+    }
+
     // 单文件
     if (typeof field === 'string') {
       return upload.single(field);
@@ -294,7 +406,10 @@ export const createUploadMiddleware = (options: UploadMiddlewareOptions): Reques
     return upload.fields(field);
   })(); 
 
-  const middlewares: any[] = [configMiddleware, uploadMiddleware]
+  // 压缩/缩略图中间件
+  const compressionMiddleware = createCompressionMiddleware(options);
+
+  const middlewares: any[] = [configMiddleware, uploadMiddleware, compressionMiddleware];
   if (enableErrorHandler) {
     middlewares.push(createErrorHandler());
   }
@@ -303,24 +418,24 @@ export const createUploadMiddleware = (options: UploadMiddlewareOptions): Reques
 }
 
 
-
-
-/** 上传配置选项 */
-interface UploadConfig {
-  /** 自定义存储路径 */
-  path?: string;
-  /** 其他配置 */
-  [key: string]: any;
-}
-
 /** 预配置的上传中间件 */
 export const upload: Record<string, (config?: UploadConfig) => RequestHandler[]> = {
+  /** 仅解析 FormData (文章发布/表单提交) */
+  none: (config: UploadConfig = {}) => createUploadMiddleware({
+    field: 'none',
+    enableErrorHandler: true,
+    ...config
+  }),
   /** 图片上传 */
   image: (config: UploadConfig = {}) => createUploadMiddleware({
     field: 'image',
     maxSizeMB: 5,
     enableErrorHandler: true,
     type: 'image',
+    compression: {
+      enable: true,
+      options: { format: 'avif', quality: 60, effort: 3 }
+    },
     ...config
   }),
   /** 多图片上传 */
@@ -332,6 +447,10 @@ export const upload: Record<string, (config?: UploadConfig) => RequestHandler[]>
     maxSizeMB: 5,
     enableErrorHandler: true,
     type: 'image',
+    compression: {
+      enable: true,
+      options: { format: 'avif', quality: 60, effort: 3 }
+    },
     ...config
   }),
   /** 文档上传 */

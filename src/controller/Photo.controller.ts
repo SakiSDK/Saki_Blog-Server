@@ -4,7 +4,6 @@
 // import { generateThumbnail, getImageInfo } from '../utils/image';
 // import { uploadBufferToOSS, uploadToOSS } from '../utils/upload';
 // import { randomUUID } from 'crypto';
-// import camelcaseKeys from 'camelcase-keys';
 // import { config } from '../config/index';
 // import {
 //     uploadPhotosSchema, updatePhotoSchema, getPhotoListSchema,
@@ -89,7 +88,7 @@
 
 //             res.status(201).json({
 //                 message: `成功上传 ${photoDataList.length} 张图片`,
-//                 data: photos.map(photo => (camelcaseKeys(photo.get({ plain: true }), { deep: true }))),
+//                 data: photos.map(photo => (photo.get({ plain: true }))),
 
 //             })
 //         } catch (error: any) {
@@ -117,7 +116,7 @@
 //             res.status(200).json({
 //                 message: '获取照片列表成功',
 //                 data: result.photos.map(
-//                     photo => camelcaseKeys(photo.get({ plain: true }), { deep: true })
+//                     photo => photo.get({ plain: true })
 //                 ),
 //                 pagination: {
 //                     total: result.total,

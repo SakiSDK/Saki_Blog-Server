@@ -1,50 +1,82 @@
 export interface AlbumAttributes {
+    /** 相册ID */
+    /** 相册名称 */
     id: number;
     name: string;
+    /** 相册标题 */
     title: string | null;
+    /** 相册slug */
     slug: string;
+    /** 相册描述 */
     description?: string | null;
-    cover_photo_id?: number | null;
-    cover_photo_url?: string | null;
-    cover_photo_thumbnail_url?: string | null;
-    photo_count: number;
-    created_at: Date;
-    updated_at: Date;
+    /** 相册封面图片ID */
+    coverPhotoId?: number | null;
+    /** 相册封面图片URL */
+    coverPhotoUrl?: string | null;
+    /** 相册封面图片缩略图URL */
+    coverPhotoThumbnailUrl?: string | null;
+    /** 相册照片数量 */
+    photoCount: number;
+    /** 创建时间 */
+    createdAt: Date;
+    /** 更新时间 */
+    updatedAt: Date;
+    /** 创建者 */
     creator: string;
 }
 
 export interface AlbumCreationAttributes
     extends Optional<
         AlbumAttributes,
-        'id' | 'slug' | 'cover_photo_id' | 'cover_photo_url' | 'created_at' | 'updated_at' | 'creator'
+        'id' | 'slug' | 'coverPhotoId' | 'coverPhotoUrl' | 'coverPhotoThumbnailUrl' | 'createdAt' | 'updatedAt' | 'creator'
     > { }
 
 export interface AlbumQueryParams {
+    /** 相册ID */
     id?: number;
+    /** 相册名称 */
     name?: string;
-    title?: string | null;
+    /** 相册标题 */
+    title?: string | null;  
+    /** 相册slug */
     slug?: string;
+    /** 相册描述 */    
     description?: string | null;
+    /** 分页页码 */
     page?: number;
+    /** 分页每页数量 */
     limit?: number;
-    order_by?: 'created_at' | 'photo_count' | 'updated_at';
+    /** 排序字段 */
+    orderBy?: 'createdAt' | 'photoCount' | 'updatedAt';
+    /** 排序方向 */
     sort?: 'ASC' | 'DESC';
 }
 
 export interface AlbumFormData {
-    name: string;   // 相册名称
-    slug: string;   // 相册slug
-    title: string;  // 相册标题
-    description?: string; // 相册描述
-    cover_photo_id?: number; // 相册封面图片ID
-    cover_photo_url?: string | null;
+    /** 相册名称 */
+    name: string;
+    /** 相册slug */
+    slug: string;
+    /** 相册标题 */
+    title: string;
+    /** 相册描述 */
+    description?: string;
+    /** 相册封面图片ID */
+    coverPhotoId?: number;
+    /** 相册封面图片URL */
+    coverPhotoUrl?: string | null;
 }
 
 // 相册更新参数（部分字段可更新）
 export interface AlbumUpdateData {
+    /** 相册名称 */
     name?: string;
+    /** 相册标题 */
     title?: string;
+    /** 相册描述 */
     description?: string | null;
-    cover_photo_id?: number | null;
-    cover_photo_url?: string | null;
+    /** 相册封面图片ID */
+    coverPhotoId?: number | null;
+    /** 相册封面图片URL */
+    coverPhotoUrl?: string | null;
 }

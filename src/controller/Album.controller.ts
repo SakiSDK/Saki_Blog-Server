@@ -3,7 +3,6 @@
 // import { AlbumService } from '../services/Album.service'
 // import { BadRequestError } from '../utils/errors'
 // import Joi from 'joi'
-// import camelcaseKeys from 'camelcase-keys'
 // import { config } from '../config/index'
 // import { createAlbumSchema, deleteAlbumSchema, getWebAlbumDetailSchema } from '../validators/album.schema'
 
@@ -45,7 +44,7 @@
 //             // 返回结果
 //             res.status(201).json({
 //                 message: '相册创建成功',
-//                 data: camelcaseKeys(album.get({ plain: true }), { deep: true }),
+//                 data: album.get({ plain: true }),
 //             })
 //         } catch (error: any) {
 //             console.error('相册创建失败', error)
@@ -99,7 +98,7 @@
 //             const { error, value } = getWebAlbumDetailSchema.validate(req.params)
 //             const album = await AlbumService.getAlbumDetail(Number(value.id))
 //             res.status(200).json({
-//                 data: camelcaseKeys(album?.get({ plain: true }),{deep: true}),
+//                 data: album?.get({ plain: true }),
 //                 message: '获取成功',
 //             });
 //         } catch (error: any) {
@@ -142,7 +141,7 @@
 //                         cover_path: `${alb.cover_photo_url}`,
 //                         photo_count: alb.photo_count,
 //                     }
-//                     return camelcaseKeys(cleanAlbum, { deep: true });
+//                     return cleanAlbum;
 //                 }),
 //                 pagination: {
 //                     total,
@@ -184,7 +183,7 @@
 //             // 返回结果
 //             res.status(200).json({
 //                 data: albums.map(album => (
-//                     camelcaseKeys(album.get({plain: true}),{deep: true})
+//                     album.get({plain: true})
 //                 )),
 //                 pagination: {
 //                     total,

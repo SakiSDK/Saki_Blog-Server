@@ -78,6 +78,7 @@ const getMimeTypeFromExt = (ext: string): string | null => {
     '.png': 'image/png',
     '.gif': 'image/gif',
     '.webp': 'image/webp',
+    '.avif': 'image/avif',
     '.svg': 'image/svg+xml',
     '.pdf': 'application/pdf',
     '.md': 'text/markdown',
@@ -270,7 +271,7 @@ const getImageInfo = async (buffer: Buffer): Promise<{
       type: dimensions.type || ''
     }
   } catch (error) {
-    throw new Error('图片信息获取失败');
+    throw new FileError('图片信息获取失败');
   }
 };
 

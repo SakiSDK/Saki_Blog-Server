@@ -1,4 +1,3 @@
-import camelcaseKeys from 'camelcase-keys';
 import { CategoryService } from '@/services/Category.service';
 import { Request, Response } from 'express';
 import type { CategoryListResult } from '@/types/models/category.type';
@@ -14,12 +13,7 @@ export class CategoryController {
         success: true,
         message: "获取所有分类成功",
         data: {
-          list: categories.map((category) => {
-            return camelcaseKeys(
-              category.get({ plain: true }),
-              { deep: true }
-            );
-          })
+          list: categories
         }
       });
     } catch (error) {
@@ -47,10 +41,7 @@ export class CategoryController {
         code: 201,
         success: true,
         message: "分类字段创建成功",
-        data: camelcaseKeys(
-          createdTag.get({ plain: true }),
-          { deep: true }
-        ),
+        data: createdTag,
       });
     } catch (error) {
       console.error("创建分类字段失败：", error);
@@ -79,10 +70,7 @@ export class CategoryController {
         code: 200,
         success: true,
         message: "分类字段更新成功",
-        data: camelcaseKeys(
-          updatedCategory.get({ plain: true }),
-          { deep: true }
-        ),
+        data: updatedCategory,
       });
     } catch (error) {
       console.error("更新分类字段失败：", error);
@@ -181,9 +169,9 @@ export class CategoryController {
             ? (sort as "asc" | "desc")
             : "desc",
         orderBy:
-          ['id', 'order', 'post_count', 'created_at', 'updated_at'].includes(orderBy as string)
-            ? (orderBy as "id" | "order" | "post_count" | "created_at" | "updated_at")
-            : "created_at",
+          ['id', 'order', 'postCount', 'createdAt', 'updatedAt'].includes(orderBy as string)
+            ? (orderBy as "id" | "order" | "postCount" | "createdAt" | "updatedAt")
+            : "createdAt",
       }
       // 调用服务层获取数据（类型安全约束）
       const result: CategoryListResult = await CategoryService.getCategoryList(query);
@@ -193,10 +181,7 @@ export class CategoryController {
         success: true,
         message: "获取分类列表成功",
         data: {
-          list: categories.map(category => camelcaseKeys(
-            category,
-            { deep: true }
-          )),
+          list: categories,
           pagination: {
             ...pagination,
             hasPrev: pagination.page > 1,
@@ -243,10 +228,7 @@ export class CategoryController {
         code: 200,
         success: true,
         message: "分类字段状态切换成功",
-        data: camelcaseKeys(
-          updatedTag.get({plain: true}),
-          { deep: true }
-        ),
+        data: updatedTag,
       });
     } catch (error) {
       console.error("切换分类字段状态失败：", error);

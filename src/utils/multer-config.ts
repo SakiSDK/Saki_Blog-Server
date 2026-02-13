@@ -26,12 +26,12 @@ export type FileType = 'images' | 'content' | 'cover' | 'avatar'
  * @description 优先级：全局配置 config.upload.allowedImageTypes → 默认值（常见图片格式）
  */
 const ALLOWED_IMAGE_MINE_TYPES = config.upload?.allowedImageTypes || [
-    'image/jpeg',
-    'image/png',
-    'image/gif',
-    'image/webp',
-    'image/svg+xml',
-    'image/avif'
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/svg+xml',
+  'image/avif'
 ]
 
 
@@ -40,7 +40,7 @@ const ALLOWED_IMAGE_MINE_TYPES = config.upload?.allowedImageTypes || [
  * @description 优先级：全局配置 config.upload.allowedArticleTypes → 默认值（markdown）
  */
 const ALLOWED_ARTICLE_TYPES = config.upload.allowedArticleTypes || [
-    'article/markdown'
+  'article/markdown'
 ]
 
 
@@ -64,14 +64,14 @@ const MAX_IMAGE_COUNT = Number(config.upload.maxImageCount) || 20
  * @description 按文件用途分类：文章封面、文章内容、文章内图片、用户头像
  */
 export const storagePaths = {
-    // 文章封面图路径
-    cover: path.join(__dirname, '../../public/uploads/articles/covers'),
-    // 文章内容文件路径
-    content: path.join(__dirname, '../../public/uploads/articles/contents'),
-    // 文章内图片路径
-    images: path.join(__dirname, '../../public/uploads/articles/images'),
-    // 用户头像路径
-    avatar: path.join(__dirname, '../../public/uploads/avatars'),
+  // 文章封面图路径
+  cover: path.join(__dirname, '../../public/uploads/articles/covers'),
+  // 文章内容文件路径
+  content: path.join(__dirname, '../../public/uploads/articles/contents'),
+  // 文章内图片路径
+  images: path.join(__dirname, '../../public/uploads/articles/images'),
+  // 用户头像路径
+  avatar: path.join(__dirname, '../../public/uploads/avatars'),
 }
 
 /**
@@ -79,10 +79,10 @@ export const storagePaths = {
  * @description 与正式目录结构一一对应，避免路径混乱
  */
 export const tempStoragePaths = {
-    cover: path.join(__dirname, '../../public/uploads/temp/covers'),
-    content: path.join(__dirname, '../../public/uploads/temp/contents'),
-    images: path.join(__dirname, '../../public/uploads/temp/images'),
-    avatar: path.join(__dirname, '../../public/uploads/temp/avatars'),
+  cover: path.join(__dirname, '../../public/uploads/temp/covers'),
+  content: path.join(__dirname, '../../public/uploads/temp/contents'),
+  images: path.join(__dirname, '../../public/uploads/temp/images'),
+  avatar: path.join(__dirname, '../../public/uploads/temp/avatars'),
 }
 
 
@@ -92,11 +92,11 @@ export const tempStoragePaths = {
  * @param directory 目录路径
  */
 const ensureDirectoryExists = async (directory: string) => {
-    try {
-        await fs.accessSync(directory);
-    } catch {
-        await fs.mkdirSync(directory, { recursive: true });
-    }
+  try {
+    await fs.accessSync(directory);
+  } catch {
+    await fs.mkdirSync(directory, { recursive: true });
+  }
 }
 
 
@@ -104,16 +104,16 @@ const ensureDirectoryExists = async (directory: string) => {
  * 初始化所有正式存储目录（项目启动时执行，确保上传目录就绪）
  */
 const initializeStorageDirectories = async () => {
-    try {
-        await Promise.all(
-            Object.values(storagePaths).map(async (directory) => {
-                await ensureDirectoryExists(directory);
-            })
-        );
-    } catch (error) {
-        console.error('[multerConfig: initializeStorageDirectories]初始化磁盘存储目录失败:', error);
-        throw new Error('文件上传初始化失败')
-    }
+  try {
+    await Promise.all(
+      Object.values(storagePaths).map(async (directory) => {
+        await ensureDirectoryExists(directory);
+      })
+    );
+  } catch (error) {
+    console.error('[multerConfig: initializeStorageDirectories]初始化磁盘存储目录失败:', error);
+    throw new Error('文件上传初始化失败')
+  }
 }
 
 
@@ -121,16 +121,16 @@ const initializeStorageDirectories = async () => {
  * 初始化所有临时存储目录（项目启动时执行，确保草稿文件可上传）
  */
 const initializeTempStorage = async () => {
-    try {
-        await Promise.all(
-            Object.values(tempStoragePaths).map(async (directory) => {
-                await ensureDirectoryExists(directory);
-            })
-        );
-    } catch (error) {
-        console.error('[multerConfig: initializeStorageDirectories]初始化磁盘存储目录失败:', error);
-        throw new Error('文件上传初始化失败')
-    }
+  try {
+    await Promise.all(
+      Object.values(tempStoragePaths).map(async (directory) => {
+        await ensureDirectoryExists(directory);
+      })
+    );
+  } catch (error) {
+    console.error('[multerConfig: initializeStorageDirectories]初始化磁盘存储目录失败:', error);
+    throw new Error('文件上传初始化失败')
+  }
 }
 
 
@@ -147,26 +147,26 @@ initializeTempStorage();
  * @returns multer 可用的 StorageEngine 实例
  */
 export const createDiskStorage = (dest: string): StorageEngine => {
-    return multer.diskStorage({
-        destination: async (req, file, cb) => {
-            try {
-                await ensureDirectoryExists(dest);
-                cb(null, dest);
-            } catch (error) {
-                cb(error as Error, '');
-            }
-        },
-        filename: (req, file, cb) => {
-            try {
-                // 动态生成唯一文件名，保留原扩展名
-                const ext = path.extname(file.originalname).toLowerCase() || '';
-                const fileName = `${randomUUID()}${ext}`;
-                cb(null, fileName);
-            } catch (err) {
-                cb(err instanceof Error ? err : new Error(String(err)), '');
-            }
-        }
-    })
+  return multer.diskStorage({
+    destination: async (req, file, cb) => {
+      try {
+        await ensureDirectoryExists(dest);
+        cb(null, dest);
+      } catch (error) {
+        cb(error as Error, '');
+      }
+    },
+    filename: (req, file, cb) => {
+      try {
+        // 动态生成唯一文件名，保留原扩展名
+        const ext = path.extname(file.originalname).toLowerCase() || '';
+        const fileName = `${randomUUID()}${ext}`;
+        cb(null, fileName);
+      } catch (err) {
+        cb(err instanceof Error ? err : new Error(String(err)), '');
+      }
+    }
+  })
 }
 
 
@@ -179,13 +179,13 @@ export const createDiskStorage = (dest: string): StorageEngine => {
  * @returns multer 可用的 FileFilterCallback 函数
  */
 const createFileFilter = (allowedTypes: string[], errorMessage: string) => {
-    return (req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
-        if (allowedTypes.includes(file.mimetype)) {
-            cb(null, true);
-        } else {
-            cb(new BadRequestError(`${errorMessage}: 不支持的文件类型${file.mimetype}`))
-        }
+  return (req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new BadRequestError(`${errorMessage}: 不支持的文件类型${file.mimetype}`))
     }
+  }
 }
 
 
@@ -199,12 +199,12 @@ const articleCoverFilter = createFileFilter(ALLOWED_IMAGE_MINE_TYPES, '封面上
  * @description 特性：仅允许图片格式、单文件10MB、最多20张
  */
 export const albumImageUploader = multer({
-    storage: multer.memoryStorage(),
-    fileFilter: albumImageFilter,
-    limits: {
-        fileSize: MAX_FILE_SIZE,
-        files: MAX_IMAGE_COUNT,
-    }
+  storage: multer.memoryStorage(),
+  fileFilter: albumImageFilter,
+  limits: {
+    fileSize: MAX_FILE_SIZE,
+    files: MAX_IMAGE_COUNT,
+  }
 })
 /**
  * 头像专用上传配置（磁盘存储）
@@ -213,12 +213,12 @@ export const albumImageUploader = multer({
  * @description 特性：3. 直接存储到正式目录（头像无草稿状态）；4. 仅支持单文件上传（一次更换一张头像）
  */
 export const avatarUploader = multer({
-    storage: multer.memoryStorage(), // 存储到用户头像专属正式目录
-    fileFilter: avatarImageFilter, // 仅允许图片格式
-    limits: {
-        fileSize: MAX_FILE_SIZE, // 头像单独限制5MB（避免大文件占用存储）
-        files: 1, // 强制单文件上传（一次只能更换一张头像）
-    }
+  storage: multer.memoryStorage(), // 存储到用户头像专属正式目录
+  fileFilter: avatarImageFilter, // 仅允许图片格式
+  limits: {
+    fileSize: MAX_FILE_SIZE, // 头像单独限制5MB（避免大文件占用存储）
+    files: 1, // 强制单文件上传（一次只能更换一张头像）
+  }
 })
 
 /**
@@ -227,12 +227,12 @@ export const avatarUploader = multer({
  * @description 特性：1. 仅允许图片格式（JPG/PNG/GIF/WebP/SVG/AVIF）；2. 单文件限制10MB（避免大文件占用存储）；3. 存储到临时目录（草稿状态）
  */
 export const coverUploader = multer({
-    storage: multer.memoryStorage(),
-    fileFilter: articleCoverFilter,
-    limits: {
-        fileSize: MAX_FILE_SIZE,
-        files: 1,
-    }
+  storage: multer.memoryStorage(),
+  fileFilter: articleCoverFilter,
+  limits: {
+    fileSize: MAX_FILE_SIZE,
+    files: 1,
+  }
 })
 
 
@@ -246,41 +246,41 @@ export const coverUploader = multer({
  * @returns multer 上传中间件（RequestHandler）
  */
 export const createUploader = (status: 'draft' | 'published', fileType: FileType): RequestHandler => {
-    let storage: StorageEngine | null = null
-    let baseDir: string | null = null
-    let filter = null;
-    if (status === 'draft') {
-        baseDir = tempStoragePaths[fileType]
-    } else {
-        baseDir = storagePaths[fileType];
+  let storage: StorageEngine | null = null
+  let baseDir: string | null = null
+  let filter = null;
+  if (status === 'draft') {
+    baseDir = tempStoragePaths[fileType]
+  } else {
+    baseDir = storagePaths[fileType];
+  }
+  console.log('[multerConfig: createUploader]生成上传器:', baseDir)
+  storage = createDiskStorage(baseDir);
+  switch (fileType) {
+    case 'cover':
+      filter = createFileFilter(ALLOWED_IMAGE_MINE_TYPES, '只许上传图片')
+      break;
+    case 'images':
+      filter = createFileFilter(ALLOWED_IMAGE_MINE_TYPES, '只允许上传图片')
+      break;
+    case 'content':
+      filter = createFileFilter(ALLOWED_ARTICLE_TYPES, '只允许上传markdown文章')
+      break;
+    case 'avatar':
+      filter = createFileFilter(ALLOWED_IMAGE_MINE_TYPES, '只允许上传图片')
+      break;
+  }
+  const uploadConfig = {
+    storage,
+    fileFilter: filter,
+    limits: {
+      fileSize: MAX_FILE_SIZE,
+      files: MAX_IMAGE_COUNT,
     }
-    console.log('[multerConfig: createUploader]生成上传器:', baseDir)
-    storage = createDiskStorage(baseDir);
-    switch (fileType) {
-        case 'cover':
-            filter = createFileFilter(ALLOWED_IMAGE_MINE_TYPES, '只许上传图片')
-            break;
-        case 'images':
-            filter = createFileFilter(ALLOWED_IMAGE_MINE_TYPES, '只允许上传图片')
-            break;
-        case 'content':
-            filter = createFileFilter(ALLOWED_ARTICLE_TYPES, '只允许上传markdown文章')
-            break;
-        case 'avatar':
-            filter = createFileFilter(ALLOWED_IMAGE_MINE_TYPES, '只允许上传图片')
-            break;
-    }
-    const uploadConfig = {
-        storage,
-        fileFilter: filter,
-        limits: {
-            fileSize: MAX_FILE_SIZE,
-            files: MAX_IMAGE_COUNT,
-        }
-    }
-    return fileType === 'images'
-        ? multer(uploadConfig).array('files', 20)
-        : multer(uploadConfig).single('file');
+  }
+  return fileType === 'images'
+    ? multer(uploadConfig).array('files', 20)
+    : multer(uploadConfig).single('file');
 }
 
 
@@ -291,46 +291,46 @@ export const createUploader = (status: 'draft' | 'published', fileType: FileType
  * @description 必须放在multer上传中间件之后（express中间件执行顺序：先上传→再处理错误）
  */
 export const handleUploadError = (err: any, req: Request, res: any, next: any) => {
-    console.error('[multerConfig: handleUploadError]文件上传错误:', {
-        message: err.message,
-        stack: err.stack,
-        code: err.code,
-        field: err.field,
-    })
-    if (err instanceof multer.MulterError) {
-        // Multer内置错误
-        switch (err.code) {
-            case 'LIMIT_FILE_SIZE':
-                return res.status(400).json({
-                    code: 'FILE_TOO_LARGE',
-                    message: `文件大小超出限制，请上传更小的文件`
-                });
-            case 'LIMIT_FILE_COUNT':
-                return res.status(400).json({
-                    code: 'TOO_MANY_FILES',
-                    message: `上传文件数量超出限制`
-                });
-            case 'LIMIT_UNEXPECTED_FILE':
-                return res.status(400).json({
-                    code: 'UNEXPECTED_FILE',
-                    message: `不允许的文件字段: ${err.field}`
-                });
-            default:
-                return res.status(400).json({
-                    code: 'UPLOAD_ERROR',
-                    message: `文件上传失败: ${err.message}`
-                });
-        }
-    }
-    // 自定义错误
-    if (err instanceof BadRequestError) {
+  console.error('[multerConfig: handleUploadError]文件上传错误:', {
+    message: err.message,
+    stack: err.stack,
+    code: err.code,
+    field: err.field,
+  })
+  if (err instanceof multer.MulterError) {
+    // Multer内置错误
+    switch (err.code) {
+      case 'LIMIT_FILE_SIZE':
         return res.status(400).json({
-            code: 'UPLOAD_ERROR',
-            message: `文件上传失败: ${err.message}`
+          code: 'FILE_TOO_LARGE',
+          message: `文件大小超出限制，请上传更小的文件`
+        });
+      case 'LIMIT_FILE_COUNT':
+        return res.status(400).json({
+          code: 'TOO_MANY_FILES',
+          message: `上传文件数量超出限制`
+        });
+      case 'LIMIT_UNEXPECTED_FILE':
+        return res.status(400).json({
+          code: 'UNEXPECTED_FILE',
+          message: `不允许的文件字段: ${err.field}`
+        });
+      default:
+        return res.status(400).json({
+          code: 'UPLOAD_ERROR',
+          message: `文件上传失败: ${err.message}`
         });
     }
-    // 未知错误
-    next(err)
+  }
+  // 自定义错误
+  if (err instanceof BadRequestError) {
+    return res.status(400).json({
+      code: 'UPLOAD_ERROR',
+      message: `文件上传失败: ${err.message}`
+    });
+  }
+  // 未知错误
+  next(err)
 }
 
 
@@ -342,37 +342,37 @@ export const handleUploadError = (err: any, req: Request, res: any, next: any) =
  * @returns 迁移后的正式路径（数据库存储用）和公共访问URL（前端展示用）
  */
 export const moveTempToFormal = async (filePath: string, fileType: FileType) => {
-    const tempPath: string = tempStoragePaths[fileType];
-    const formalPath: string = storagePaths[fileType];
-    
-    try {
-        // 1. 从URL中提取文件名
-        const urlObj = new URL(filePath);
-        const fileName = path.basename(urlObj.pathname);
+  const tempPath: string = tempStoragePaths[fileType];
+  const formalPath: string = storagePaths[fileType];
+  
+  try {
+    // 1. 从URL中提取文件名
+    const urlObj = new URL(filePath);
+    const fileName = path.basename(urlObj.pathname);
 
-        // 2. 拼接单个临时文件的完整路径
-        const tempFileFullPath = path.join(tempStoragePaths[fileType], fileName);
+    // 2. 拼接单个临时文件的完整路径
+    const tempFileFullPath = path.join(tempStoragePaths[fileType], fileName);
 
-        // 3. 拼接目标正式文件的完整路径
-        const formalDir = storagePaths[fileType];
-        const formalFileFullPath = path.join(formalDir, fileName);
+    // 3. 拼接目标正式文件的完整路径
+    const formalDir = storagePaths[fileType];
+    const formalFileFullPath = path.join(formalDir, fileName);
 
-        // 4. 确保正式目标存在（防止目标未创建）
-        await ensureDirectoryExists(formalDir);
+    // 4. 确保正式目标存在（防止目标未创建）
+    await ensureDirectoryExists(formalDir);
 
-        // 5. 移动单个文件
-        await fs.renameSync(tempFileFullPath, formalFileFullPath); // 移动文件
+    // 5. 移动单个文件
+    await fs.renameSync(tempFileFullPath, formalFileFullPath); // 移动文件
 
-        // 存储到数据库路径和访问URL
-        const result = {
-            formalPath: `/uploads/articles/${fileType}/${fileName}`, // 存储到数据库的路径
-            publicUrl: `${config.serverUrl}/uploads/articles/${fileType}/${fileName}` // 前端访问URL
-        }
-        console.log(`[][multerConfig: moveTempToFormal]文件迁移成功:`, result);
-        return result;
-    } catch (error: any) {
-        throw new Error(`文件迁移失败：${error.message}`);
+    // 存储到数据库路径和访问URL
+    const result = {
+      formalPath: `/uploads/articles/${fileType}/${fileName}`, // 存储到数据库的路径
+      publicUrl: `${config.serverUrl}/uploads/articles/${fileType}/${fileName}` // 前端访问URL
     }
+    console.log(`[][multerConfig: moveTempToFormal]文件迁移成功:`, result);
+    return result;
+  } catch (error: any) {
+    throw new Error(`文件迁移失败：${error.message}`);
+  }
 };
 
 
@@ -383,15 +383,15 @@ export const moveTempToFormal = async (filePath: string, fileType: FileType) => 
  * @returns 批量迁移后的结果数组（每个元素包含formalPath和publicUrl）
  */
 export const bulkMoverTempToFormal = async (filePaths: string[], fileType: FileType) => {
-    const results: {
-        formalPath: string;
-        publicUrl: string;
-    }[] = []
-    console.log('[multerConfig: bulkMoverTempToFormal]批量迁移文件开始:', filePaths)
-    for (const filePath of filePaths) {
-        const result = await moveTempToFormal(filePath, fileType);
-        results.push(result);
-    }
-    console.log('[multerConfig: bulkMoverTempToFormal]批量迁移文件结束:', results)
-    return results;
+  const results: {
+    formalPath: string;
+    publicUrl: string;
+  }[] = []
+  console.log('[multerConfig: bulkMoverTempToFormal]批量迁移文件开始:', filePaths)
+  for (const filePath of filePaths) {
+    const result = await moveTempToFormal(filePath, fileType);
+    results.push(result);
+  }
+  console.log('[multerConfig: bulkMoverTempToFormal]批量迁移文件结束:', results)
+  return results;
 }

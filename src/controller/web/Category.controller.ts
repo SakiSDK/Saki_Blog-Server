@@ -1,7 +1,6 @@
 import { CategoryService } from "../../services/Category.service";
 import { Request, Response } from "express";
 import { CategoryListParams, CategoryListResult } from "../../types/models/category.type";
-import camelcaseKeys from "camelcase-keys";
 
 
 export class CategoryController { 
@@ -23,9 +22,7 @@ export class CategoryController {
         success: true,
         message: "获取分类列表成功",
         data: {
-          list: categories.map((category) => {
-            return camelcaseKeys(category, { deep: true });
-          }), // 统一列表字段名
+          list: categories, // 统一列表字段名
           pagination: {
             ...pagination,
             hasNext: pagination.page < pagination.totalPages, // 新增：是否有下一页（可选）

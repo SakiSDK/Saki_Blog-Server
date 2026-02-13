@@ -33,7 +33,7 @@ export const CategoryListQuerySchema = z.object({
   keyword: zStr.max(50, "搜索关键字长度不能超过 50 个字符").optional().describe("搜索关键字"),
   createdFrom: zDateTimeStr.optional().describe("创建开始时间"),
   createdTo: zDateTimeStr.optional().describe("创建结束时间"),
-  orderBy: z.enum(['id', 'name', 'order', 'post_count', 'created_at', 'updated_at']).optional().describe("排序字段"),
+  orderBy: z.enum(['id', 'name', 'order', 'postCount', 'createdAt', 'updatedAt']).optional().describe("排序字段"),
   sort: z.enum(['asc', 'desc']).optional().describe("排序方式")
 })
 
