@@ -1,4 +1,8 @@
+import { ImageService, ImageRecord } from '@/services/Image.service';
+import { PhotoService } from '@/services/Photo.service';
+import { ImageScene } from '@/constants/image.scene';
 import { Request, Response, NextFunction } from 'express';
+import { sequelize } from '@/models';
 import path from 'path';
 import fs from 'fs';
 import { config } from '@/config';
@@ -60,6 +64,7 @@ export class UploadController {
       });
     }
   }
+
   /** 
    * 上传文章图片文件
    * @route POST /admin/upload/article/cover
@@ -100,6 +105,104 @@ export class UploadController {
         code: 500,
         success: false,
         message: '图片处理失败',
+        data: null
+      });
+    }
+  }
+
+  /**
+   * 上传相册图片
+   * @route POST /admin/upload/photo
+   * @group admin - 管理员
+   */
+  public static async uploadAlbumPhotos(req: Request, res: Response) {
+    if (!req.files || (Array.isArray(req.files) && req.files.length === 0)) {
+      return res.status(400).json({
+        code: 400,
+        success: false,
+        message: '未上传文件',
+        data: null
+      });
+    }
+
+    const files = req.files as Express.Multer.File[];
+    const albumId = req.body.albumId ? parseInt(req.body.albumId, 10) : null;
+    
+    const transaction = await sequelize.transaction();
+    const photoService = new PhotoService();
+
+    try {
+      // 1. 获取临时文件路径（相对路径）
+      const tempPaths = files.map(file => path.relative(config.upload.rootPath, file.path));
+
+      // 2. 批量移动到正式目录
+      const formalPaths = await ImageService.copyToFormalDirBatch(tempPaths, ImageScene.PHOTO_IMAGE);
+
+      // 3. 构建 ImageRecord 列表
+      const imageRecords: ImageRecord[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const formalPath = formalPaths[i];
+        
+        // 获取图片元数据（宽高等）
+        const meta = await ImageService.getImageMetadata(formalPath);
+
+        // 生成缩略图
+        try {
+          await ImageService.generateThumbnail(formalPath, {
+            width: 400,
+            height: 400,
+            fit: 'cover'
+          });
+        } catch (error) {
+          console.warn(`[Upload] 生成缩略图失败: ${formalPath}`, error);
+        }
+
+        imageRecords.push({
+          path: formalPath,
+          size: meta.size,
+          width: meta.width,
+          height: meta.height,
+          type: file.mimetype,
+          storage: 'local',
+          uploadedAt: new Date(),
+          // userId: (req as any).user?.id // 如果需要记录上传者
+        });
+
+        // 删除临时文件
+        try {
+          await fs.promises.unlink(file.path);
+        } catch (e) {
+          console.warn(`Failed to delete temp file: ${file.path}`, e);
+        }
+      }
+
+      // 4. 批量写入数据库
+      const images = await ImageService.createImageRecords(imageRecords, transaction);
+
+      // 5. 如果有 albumId，创建 Photo 关联
+      if (albumId && !isNaN(albumId)) {
+        for (const image of images) {
+          // 串行执行以避免并发问题（如同时更新相册封面）
+          await photoService.createPhoto(albumId, image.id, null, transaction);
+        }
+      }
+
+      await transaction.commit();
+
+      return res.status(200).json({
+        code: 200,
+        success: true,
+        message: '相册图片上传成功',
+        data: null
+      });
+    } catch (error) {
+      await transaction.rollback();
+      console.error('Upload album photos error:', error);
+      return res.status(500).json({
+        code: 500,
+        success: false,
+        message: '图片上传处理失败',
         data: null
       });
     }
@@ -185,7 +288,7 @@ export class UploadController {
    */
   public static createDeleteHandler = (subdir: string) => {
     return async (req: Request, res: Response, next: NextFunction) => {
-      const { filename } = req.params;
+      const filename = req.params.filename as string;
       if (!filename) {
         return res.status(400).json({
           code: 400,
@@ -246,4 +349,48 @@ export class UploadController {
   public static deleteTempFiles = async (req: Request, res: Response) => {
     return UploadController.createDeleteHandler('')(req, res, () => {});
   };
+
+  /** 
+   * 上传相册图片
+   * @router POST /admin/upload/photo
+   */
+  public static uploadPhoto = async (req: Request, res: Response) => {
+    // 检查文件是否存在
+    if (!req.file) {
+      return res.status(400).json({
+        code: 400,
+        success: false,
+        message: '未上传文件',
+        data: null
+      });
+    }
+
+    try {
+      // 获取文件基本信息
+      const fileInfo = getFileInfo(req.file);
+      
+      // 生成临时预览链接 (isTemp = true)
+      const url = generateUrlFromPath(req.file.path, true);
+
+      return res.status(200).json({
+        code: 200,
+        success: true,
+        message: '封面上传成功',
+        data: {
+          ...fileInfo,
+          url,
+          // 标记为临时文件，前端保存文章时需要将此列表传给 confirmFiles
+          isTemp: true
+        }
+      });
+    } catch (error) {
+      console.error('Upload article image error:', error);
+      return res.status(500).json({
+        code: 500,
+        success: false,
+        message: '图片处理失败',
+        data: null
+      });
+    }
+  }
 }

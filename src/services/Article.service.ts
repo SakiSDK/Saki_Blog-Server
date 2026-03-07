@@ -1,3 +1,4 @@
+import { resolveId } from '@/utils/id.util';
 import { createShortIdCodec } from '@/utils/shortId.codec';
 import { Op, Transaction } from 'sequelize';
 import { sequelize } from '@/models';
@@ -7,9 +8,10 @@ import { getMeiliIndex } from '@/libs/meilisearch';
 import { config } from '@/config/index';
 import { ArticleAttributes } from '@/models/Article.model';
 import { ImageService } from './Image.service';
-import { ArticleListParams } from '@/schemas/admin/article.schema';
+import { ArticleListQuery, ArticleSearchQuery } from '@/schemas/article/article.admin';
 import { buildListQuery } from '@/utils/query.util';
 import { Pagination } from '@/types/app';
+import { ArticleRecentVo, type ArticleBriefVo, type ArticleListQueryVo } from '@/schemas/article/article.web';
 
 
 /** ---------- 类型定义 ---------- */
@@ -79,8 +81,17 @@ export interface ArticleWithAuthor extends ArticleAttributes {
   author?: User;
 }
 
+export interface ArticleDetail extends ArticleAttributes {
+  author?: User;
+  tags?: Tag[];
+  categories?: Category[];
+}
 
-
+/** 含有 tags 和 categories 的 Article 类型 */
+export interface ArticleWithTagsAndCategories extends ArticleAttributes {
+  tags?: Tag[];
+  categories?: Category[];
+}
 
 /** ---------- 主服务类 ---------- */
 /** 
@@ -97,17 +108,8 @@ export class ArticleService {
    * @throws { NotFoundError } - 如果文章不存在
    */
   public static async verifyArticleId(rawId: number | string): Promise<void> {
-    let articleId: number;
+    const articleId = resolveId(rawId, config.salt.article);
 
-    if (typeof rawId !== 'number') {
-      const { decode } = createShortIdCodec(config.salt.article);
-      // 将文章 ID 由短ID转为数字ID
-      const decoded = decode(rawId);
-      if (decoded === null) throw new BadRequestError('短ID无效');
-      articleId = decoded;
-    } else {
-      articleId = rawId;
-    }
 
     const article = await Article.findOne({
       where: {
@@ -124,19 +126,18 @@ export class ArticleService {
    * @param pageSize 每页数量
    * @returns 最新文章列表
    */
-  public static async getLatestArticles(page: number = 1, pageSize: number = 5) {
+  public static async getLatestArticles(page: number = 1, pageSize: number = 5): Promise<{
+    list: ArticleRecentVo[]
+  }> {
     const offset = (page - 1) * pageSize;
     const articles = await Article.findAll({
       where: { status: 'published' },
       attributes: {
-        exclude: [
-          'id',
-          'description',
-          'content',
-          'authorId',
-          'status',
-          'imagePaths',
-          'updatedAt',
+        include: [
+          'shortId',
+          'coverPath',
+          'createdAt',
+          'title',
         ]
       },
       order: [['createdAt', 'DESC']],
@@ -144,8 +145,26 @@ export class ArticleService {
       limit: pageSize,
     });
 
+    const list = await Promise.all(
+      articles.map(async (article) => {
+        const plain = article.get({ plain: true }) as ArticleAttributes;
+        const thumbCover = plain.coverPath
+          ? await ImageService.getThumbUrl(plain.coverPath)
+          : null;
+        console.log(thumbCover)
+        return {
+          shortId: plain.shortId!,
+          title: plain.title,
+          thumbCover,
+          createdAt: plain.createdAt,
+        };
+      })
+    ) as ArticleRecentVo[];
+
+    console.log(list);
+
     return {
-      list: articles.map((article) => article.get({plain: true}))
+      list,
     }
   }
 
@@ -220,12 +239,14 @@ export class ArticleService {
       // 创建图片关联关系
       if (coverPath) {
         try {
-          const { size, type } = await ImageService.getImageMetadata(coverPath);
+          const { size, type, width, height } = await ImageService.getImageMetadata(coverPath);
           
           await ImageService.createImageRecord(
             {
               path: coverPath,
               size,
+              width,
+              height,
               type,
               storage: 'local',
               uploadedAt: new Date(),
@@ -438,39 +459,44 @@ export class ArticleService {
    */
   public static async getArticleDetail(rawId: string | number) {
     /** 文章 ID */
-    let articleId: number;
-
-    // 标准化文章ID
-    if (typeof rawId !== 'number') {
-      const { decode } = createShortIdCodec(config.salt.article);
-      // 将文章 ID 由短ID转为数字ID
-      const decoded = decode(rawId);
-      if (decoded === null) throw new BadRequestError('短ID无效');
-      articleId = decoded;
-    } else {
-      articleId = rawId;
-    }
+    const articleId = resolveId(rawId, config.salt.article);
 
     const article = await Article.findOne({
       where: {
-        id: articleId
+        id: articleId,
       },
+      attributes: [
+        'id',
+        'shortId',
+        'title',
+        'description',
+        'content',
+        'priority',
+        'authorId',
+        'status',
+        'coverPath',
+        'coverThumbPath',
+        'imagePaths',
+        'createdAt',
+        'updatedAt',
+        'allowComment',
+      ],
       include: [
         {
           model: User,
           as: 'author',
-          attributes: ['id', 'username', 'avatar', 'email']
+          attributes: ['id', 'nickname', 'avatar']
         },
         {
           model: Category,
           as: 'categories',
-          attributes: ['id', 'name', 'alias'],
+          attributes: ['id', 'name', 'slug'],
           through: { attributes: [] }
         },
         {
           model: Tag,
           as: 'tags',
-          attributes: ['id', 'name', 'alias'],
+          attributes: ['id', 'name', 'slug'],
           through: { attributes: [] }
         }
       ]
@@ -480,35 +506,132 @@ export class ArticleService {
       throw new NotFoundError('文章不存在');
     }
 
-    return article;
+    const plain = article.get({ plain: true }) as ArticleDetail;
+    /** 文章缩略图封面 URL */
+    // 获取封面缩略图
+    let thumbCover: string | null = null;
+    if (plain.coverPath) {
+      thumbCover = await ImageService.getThumbUrl(plain.coverPath);
+    }
+    // 原始封面URL
+    const originUrl = plain.coverPath ? ImageService.getOriginUrl(plain.coverPath) : null;
+    
+    return {
+      id: plain.id,
+      shortId: plain.shortId,
+      author: plain.author ? {
+        id: plain.author.id,
+        nickname: plain.author.nickname,
+        avatar: plain.author.avatar,
+      } : {
+        id: 0,
+        nickname: '未知作者',
+        avatar: null,
+      },
+      title: plain.title,
+      thumbCover: thumbCover ?? originUrl,
+      cover: originUrl, 
+      status: plain.status,
+      priority: plain.priority,
+      allowComment: plain.allowComment,
+      tags: plain.tags,
+      categories: plain.categories,
+      description: plain.description,
+      content: plain.content,
+      createdAt: plain.createdAt,
+    };
+  }
+
+  /** 
+   * 获取用于 web 端的文章列表
+   * @param query 查询参数
+   * @returns 文章列表
+   */
+  public static async getArticleListForWeb(query: Partial<ArticleListQueryVo> = {}): Promise<{
+    list: ArticleBriefVo[];
+    pagination: Pagination;
+  }> {
+    const page = Number(query.page) || 1;
+    const pageSize = Number(query.pageSize) || 6;
+    const offset = (page - 1) * pageSize;
+    
+    const {count, rows} = await Article.findAndCountAll({
+      where: {
+        status: 'published',
+      },
+      distinct: true,
+      order: [['createdAt', 'DESC']],
+      offset,
+      limit: pageSize,
+      include: [
+        {
+          model: Category,
+          as: 'categories',
+          attributes: ['id', 'name', 'slug'],
+          through: { attributes: [] }
+        },
+        {
+          model: Tag,
+          as: 'tags',
+          attributes: ['id', 'name', 'slug'],
+          through: { attributes: [] }
+        },
+      ]
+    });
+
+    const list = await Promise.all(rows.map(async (article) => {
+      const plain = article.get({ plain: true }) as ArticleWithTagsAndCategories;
+      const cover = plain.coverPath ? await ImageService.getThumbUrl(plain.coverPath) : null;
+      return {
+        cover,
+        shortId: plain.shortId,
+        title: plain.title,
+        priority: Number(plain.priority) ?? null,
+        createdAt: plain.createdAt,
+        tags: plain.tags || [],
+        categories: plain.categories || [],
+      };
+    }));
+
+    return {
+      list,
+      pagination: {
+        page,
+        pageSize,
+        total: count,
+        totalPages: Math.ceil(count / pageSize),
+      }
+    };
   }
 
   /** 
    * 获取文章列表
    * @returns 文章列表
    */
-  public static async getArticleList(query: Partial<ArticleListParams> = {}): Promise<{
+  public static async getArticleList(query: Partial<ArticleListQuery> = {}): Promise<{
     list: ArticleListItem[];
     pagination: Pagination;
   }> {
     // 1. 构建通用查询条件
+    // 列表接口仅做基础筛选，id/status/keyword 的精确或全文搜索由独立搜索接口处理
     const { where, order, offset, limit, page, pageSize } = buildListQuery(query, {
       searchFields: ['title', 'description'],
-      exactFields: ['id', 'status'],
+      exactFields: [],
     });
 
     // 2. 执行查询
     const { count, rows } = await Article.findAndCountAll({
       where,
-      attributes: {
-        exclude: [
-          'description',
-          'content',
-          'authorId',
-          'imagePaths',
-          'updatedAt',
-        ]
-      },
+      attributes: [
+        'id',
+        'shortId',
+        'title',
+        'coverPath',
+        'status',
+        'priority',
+        'allowComment',
+        'createdAt',
+      ],
       order: order as any,
       offset,
       limit,
@@ -530,15 +653,17 @@ export class ArticleService {
       if (plain.coverPath) {
         thumbCover = await ImageService.getThumbUrl(plain.coverPath);
       }
+      // 原始图片
+      const originUrl = plain.coverPath ? ImageService.getOriginUrl(plain.coverPath) : null;
 
       return {
         id: plain.id,
         shortId: plain.shortId,
         author: plain.author?.nickname ?? '未知作者',
         title: plain.title,
-        thumbCover,
+        thumbCover: thumbCover ?? originUrl,
         status: plain.status,
-        priority: plain.priority ? Number(plain.priority) : null,
+        priority: Number(plain.priority),
         allowComment: Boolean(plain.allowComment),
         createdAt: plain.createdAt,
       };
@@ -554,4 +679,188 @@ export class ArticleService {
       }
     };
   }
+
+  /**
+   * 删除文章及其对应关联关系，以及 meilisearch 的 index 关联 
+   *  @param articleId 文章ID
+   *  @throws {NotFoundError} 文章不存在
+   */
+  public static async deleteArticleWithRelations(rawId: number | string) {
+    /** 文章 ID */
+    const articleId = resolveId(rawId, config.salt.article);
+
+    /*
+    * 检查文章是否存在 */
+    await this.verifyArticleId(articleId);
+
+    /** 事务 */
+    const transaction = await sequelize.transaction();
+    try {
+      /** 删除文章的标签和分类字段对应关系 */
+      await Article.deleteWithRelations(articleId, { transaction });
+      
+      /** 删除文章和图片的关联关系 */
+      await ImageService.deleteWithRelations(articleId, { transaction });
+      
+      /** 删除 meilisearch 的 index 关联 */
+      // 注意：Meilisearch 操作不参与数据库事务，但放在此处若失败可回滚数据库操作
+      const index = await getMeiliIndex('articles');
+      await index.deleteDocument(articleId.toString());
+
+      // 提交事务
+      await transaction.commit();
+    } catch (error) {
+      // 回滚事务
+      await transaction.rollback();
+      throw error;
+    }
+  }
+
+  /**
+   * 搜索文章 
+   * @param query 搜索参数
+   * @returns 文章列表
+   */
+  public static async searchArticles(query: Partial<ArticleSearchQuery>) {
+    const { 
+      keyword, 
+      author, 
+      status, 
+      createdFrom, 
+      createdTo, 
+      page = 1, 
+      pageSize = 10 
+    } = query;
+
+    const offset = (Number(page) - 1) * Number(pageSize);
+    const limit = Number(pageSize);
+
+    // 关键词使用Meilisearch搜索
+    let matchedIds: number[] | null = null;
+    if (keyword?.trim()) {
+      try {
+        const index = await getMeiliIndex('articles');
+        const searchResult = await index.search(keyword, {
+          limit: 1000, // 获取足够多的候选 ID
+          attributesToRetrieve: ['id'],
+          attributesToSearchOn: ['title', 'description', 'content'], // 只搜索标题、简介、内容
+        });
+        matchedIds = searchResult.hits.map((hit) => hit.id);
+        
+        // 如果有关键词但没搜到，直接返回空
+        if (matchedIds.length === 0) {
+          return {
+            list: [],
+            pagination: {
+              page: Number(page),
+              pageSize: Number(pageSize),
+              total: 0,
+              totalPages: 0,
+            }
+          };
+        }
+      } catch (error) {
+        console.error('[ArticleService] Meilisearch search failed:', error);
+        // 如果 Meilisearch 挂了，这里可以选择降级或者抛出错误
+        // 鉴于用户要求 keyword 走 meilisearch，这里如果失败最好抛出异常让前端知道
+        throw error;
+      }
+    }
+
+    console.log('matchedIds: ', matchedIds);
+
+    // 构建通用查询条件
+    const where: any = {};
+    
+    // 应用 Meilisearch 搜索结果的 ID 过滤
+    if (matchedIds !== null) {
+      where.id = { [Op.in]: matchedIds };
+    } else if (keyword?.trim()) {
+      // 如果有 keyword 但是 Meilisearch 返回空，理论上上面已经 return 了
+      // 这里是兜底，防止逻辑漏洞
+      where.id = { [Op.in]: [] };
+    }
+
+    // 应用状态过滤
+    if (status) {
+      where.status = status;
+    }
+
+    // 应用日期范围过滤
+    if (createdFrom || createdTo) {
+      where.createdAt = {};
+      if (createdFrom) where.createdAt[Op.gte] = new Date(createdFrom);
+      if (createdTo) where.createdAt[Op.lte] = new Date(createdTo);
+    }
+
+    // 应用作者过滤
+    const authorInclude: any = {
+      model: User,
+      as: 'author',
+      attributes: ['nickname'],
+    };
+
+    if (author?.trim()) {
+      authorInclude.where = {
+        nickname: { [Op.like]: `%${author.trim()}%` }
+      };
+    }
+
+    // 执行数据库查询
+    const { count, rows } = await Article.findAndCountAll({
+      where,
+      include: [
+        authorInclude,
+      ],
+      attributes: [
+        'id',
+        'shortId',
+        'title',
+        'coverPath',
+        'status',
+        'priority',
+        'allowComment',
+        'createdAt',
+      ],
+      order: [['createdAt', 'DESC']],
+      offset,
+      limit,
+    });
+
+    // 格式化返回数据（与 getArticleList 保持一致）
+    const list = await Promise.all(rows.map(async (article) => {
+      const plain = article.get({ plain: true }) as ArticleWithAuthor;
+      
+      // 获取封面缩略图
+      let thumbCover: string | null = null;
+      if (plain.coverPath) {
+        thumbCover = await ImageService.getThumbUrl(plain.coverPath);
+      }
+      // 原始图片
+      const originUrl = plain.coverPath ? ImageService.getOriginUrl(plain.coverPath) : null;
+
+      return {
+        id: plain.id,
+        shortId: plain.shortId,
+        author: plain.author?.nickname ?? '未知作者',
+        title: plain.title,
+        thumbCover: thumbCover ?? originUrl,
+        status: plain.status,
+        priority: Number(plain.priority),
+        allowComment: Boolean(plain.allowComment),
+        createdAt: plain.createdAt,
+      };
+    }));
+
+    return {
+      list,
+      pagination: {
+        page: Number(page),
+        pageSize: Number(pageSize),
+        total: count,
+        totalPages: Math.ceil(count / Number(pageSize)),
+      }
+    };
+  }
+
 }

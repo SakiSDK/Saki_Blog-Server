@@ -40,6 +40,8 @@ export const zodValidate = (schemas: ValidateSchemas = {}) => {
           code: issue.code,
         }));
 
+        console.error('Validation Error:', JSON.stringify(issues, null, 2));
+
         return res.status(400).json({
           code: 400,
           success: false,

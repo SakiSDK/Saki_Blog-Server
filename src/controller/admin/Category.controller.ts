@@ -148,33 +148,9 @@ export class CategoryController {
   }
   public static async getCategoryList(req: Request, res: Response) { 
     try {
-      const {
-        keyword, id, status,
-        startTime, endTime,
-        page, pageSize, sort, orderBy,
-      } = req.query;
-      // 类型转换并设置默认值
-      const pageNum: number = Number(page) || 1;
-      const size: number = Number(pageSize) || 10;
-      const query = {
-        id: id ? Number(id) : undefined,
-        keyword: typeof keyword === 'string' ? keyword : undefined,
-        status: ['active', 'inactive'].includes(status as string) ? (status as "active" | "inactive") : undefined,
-        createdFrom: typeof startTime === 'string' ? startTime : undefined,
-        createdTo: typeof endTime === 'string' ? endTime : undefined,
-        page: pageNum,
-        pageSize: size,
-        sort:
-          ['asc', 'desc'].includes(sort as string)
-            ? (sort as "asc" | "desc")
-            : "desc",
-        orderBy:
-          ['id', 'order', 'postCount', 'createdAt', 'updatedAt'].includes(orderBy as string)
-            ? (orderBy as "id" | "order" | "postCount" | "createdAt" | "updatedAt")
-            : "createdAt",
-      }
+      const query = req.query;
       // 调用服务层获取数据（类型安全约束）
-      const result: CategoryListResult = await CategoryService.getCategoryList(query);
+      const result: CategoryListResult = await CategoryService.getCategoryList(query as any);
       const { categories, pagination } = result;
       res.status(200).json({
         code: 200,
@@ -190,10 +166,7 @@ export class CategoryController {
         },
       })
     } catch (error) {
-      // 4. 统一错误处理（区分业务错误和未知错误）
       console.error("获取标签列表失败：", error);
-
-      // 业务错误（服务层抛出的Error实例，携带错误信息）
       if (error instanceof Error) {
         res.status(500).json({
           code: 500,

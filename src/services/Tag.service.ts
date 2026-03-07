@@ -5,8 +5,8 @@ import { BadRequestError, NotFoundError } from '@/utils/errors'
 import { Op, Transaction } from 'sequelize'
 import type { Pagination } from '@/types/app';
 import { HotTagResult } from '@/types/models/tag.type';
-import { HotTagParams } from '@/schemas/web/tag.schema';
-import { TagCreateBody, TagListQuery } from '@/schemas/admin/tag.schema';
+import { HotTagQuery } from '@/schemas/tag/tag.web';
+import { TagCreateBody, TagListQuery } from '@/schemas/tag/tag.admin';
 import { buildListQuery } from '@/utils/query.util';
 
 export class TagService {
@@ -224,7 +224,7 @@ export class TagService {
    * @param query 查询参数
    * @returns 标签列表+总条数
    */
-  public static async getTagList(query: TagListQuery): Promise<{
+  public static async getTagList(query: Partial<TagListQuery>): Promise<{
     tags: Tag[],
     pagination: Pagination,
   }> {
@@ -257,7 +257,7 @@ export class TagService {
   /**
    * 获取热门标签，根据文章数量
    */
-  public static async getHotTags(query: HotTagParams): Promise<HotTagResult> {
+  public static async getHotTags(query: HotTagQuery): Promise<HotTagResult> {
     const { pageSize = 10, withPostCount = true } = query;
     const attributes = ['id', 'name', 'slug', 'description', 'order', 'createdAt'];
     if (withPostCount) {

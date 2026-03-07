@@ -17,6 +17,10 @@ export interface UploadConfig {
   allowedMusicTypes: string[]
   /** 允许的文件扩展名（前端校验） */
   allowedExtensions: string[]
+  /** 允许的文章内容文件类型 */
+  allowedArticleTypes?: string[]
+  /** 图片上传数量限制 */
+  maxImageCount?: number
   /** 文件名生成策略 */
   filenameStrategy: FilenameStrategy
   /** 临时文件目录 */

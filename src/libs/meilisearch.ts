@@ -36,24 +36,34 @@ const ensureMeiliRunning = async () => {
   const isHealthy = await checkMeiliHealth();
   if (isHealthy) return;
 
-  console.log(`[MeiliSearch] 服务未启动，尝试自动启动...`);
-  try {
-    await execAsync('brew services start meilisearch');
-    console.log(`[MeiliSearch] 服务已成功启动`);
+  // 仅在 macOS 环境下尝试使用 brew services 启动
+  if (process.platform === 'darwin') {
+    console.log(`[MeiliSearch] 服务未启动，尝试自动启动...`);
+    try {
+      await execAsync('brew services start meilisearch');
+      console.log(`[MeiliSearch] 服务已成功启动`);
 
-    // 等待服务就绪，最多等待十秒
-    const startTime = Date.now();
-    while (Date.now() - startTime < 10000) {
-      if (isHealthy) {
-        console.log('[MeiliSearch] 服务已就绪');
-        return;
+      // 等待服务就绪，最多等待十秒
+      const startTime = Date.now();
+      while (Date.now() - startTime < 10000) {
+        if (await checkMeiliHealth()) {
+          console.log('[MeiliSearch] 服务已就绪');
+          return;
+        }
+        await new Promise(res => setTimeout(res, 500)); // 500ms 检查一次
       }
-      await new Promise(res => setTimeout(res, 500)); // 500ms 检查一次
-    }
 
-    throw new InternalServerError('启动超时, Meilisearch 服务仍不可用');
-  } catch (error) {
-    throw new InternalServerError('无法启动 Meilisearch 服务：' + (error as any).message);
+      throw new InternalServerError('启动超时, Meilisearch 服务仍不可用');
+    } catch (error) {
+      throw new InternalServerError('无法启动 Meilisearch 服务：' + (error as any).message);
+    }
+  } else {
+    // 非 macOS 环境（如 Linux 服务器），仅提示错误
+    console.warn('[MeiliSearch] 服务未启动，且当前环境不支持自动启动 (brew services)');
+    // 这里可以选择抛出错误，或者只是警告，取决于业务需求。建议抛出错误让管理员知道服务不可用。
+    // 但为了避免应用启动崩溃，这里暂时只警告，后续调用会失败。
+    // 或者抛出错误：
+    throw new InternalServerError('Meilisearch 服务未启动，请检查服务状态');
   }
 };
 

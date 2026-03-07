@@ -35,6 +35,27 @@ services:
     volumes:
       - meili_data:/meili_data
 
+  app:
+    build: .
+    container_name: blog_server
+    restart: always
+    ports:
+      - "${PORT:-3000}:3000"
+    depends_on:
+      - mysql
+      - redis
+      - meilisearch
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MEILISEARCH_HOST=http://meilisearch:7700
+      - MEILISEARCH_API_KEY=${MEILISEARCH_API_KEY:-092e2fecb3a6ce1f45ca964c5d0507b97eaa1668}
+    volumes:
+      - ./public:/app/public
+      - ./.env:/app/.env
+
 volumes:
   mysql_data:
   redis_data:

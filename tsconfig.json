@@ -18,9 +18,9 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noImplicitReturns": false,
-    "exactOptionalPropertyTypes": true,
+    "exactOptionalPropertyTypes": false,
     "noFallthroughCasesInSwitch": true,
-    "ignoreDeprecations": "6.0",
+    // baseUrl 已弃用，将在 TypeScript 7.0 中移除，使用 ignoreDeprecations 抑制警告
     "baseUrl": "./src",
     "paths": {
       "@/*": ["*"],

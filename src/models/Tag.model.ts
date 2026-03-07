@@ -44,19 +44,30 @@ export class Tag extends Model<TagAttributes, TagCreationAttributes> implements 
   // 更新文章计数
   public static async updatePostCount(
     tagId: number,
-    change: number = 1,
+    change: number,
     transaction: Transaction
-  ): Promise<[Tag[], number?]> {
-    const method = change > 0 ? 'increment' : 'decrement';
-    const options = {
-      by: Math.abs(change),
-      where: {
-        id: tagId,
-        ...(change<0&&{photo_count:{ [Op.gt]: 0}})
-      },
-      transaction
+  ) {
+    if (change === 0) return;
+
+    // 如果是减少计数，需要确保计数不为负数
+    if (change < 0) {
+      await Tag.decrement('postCount', {
+        by: Math.abs(change),
+        where: {
+          id: tagId,
+          postCount: { [Op.gt]: 0 } // 确保 postCount > 0 才能减
+        },
+        transaction
+      });
+    } else {
+      await Tag.increment('postCount', {
+        by: change,
+        where: {
+          id: tagId
+        },
+        transaction
+      });
     }
-    return await this[method]('postCount', options);
   }
 }
 

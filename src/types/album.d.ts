@@ -55,17 +55,18 @@ export interface AlbumQueryParams {
 export interface AlbumFormData {
     /** 相册名称 */
     name: string;
-    /** 相册slug */
-    slug: string;
     /** 相册标题 */
     title: string;
     /** 相册描述 */
     description?: string;
+    /** 相册状态 */
+    status?: AlbumStatus;
+    /** 相册优先级 */
+    priority?: number;
     /** 相册封面图片ID */
-    coverPhotoId?: number;
-    /** 相册封面图片URL */
-    coverPhotoUrl?: string | null;
+    coverPhotoId?: number | null;
 }
+
 
 // 相册更新参数（部分字段可更新）
 export interface AlbumUpdateData {

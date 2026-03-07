@@ -1,5 +1,5 @@
 import { Image } from '@/models/Image.model';
-import { Transaction } from 'sequelize';
+import { Op, Transaction } from 'sequelize';
 import { BadRequestError, InternalServerError, NotFoundError } from '@/utils/errors';
 import { config } from '@/config';
 import path from 'path';
@@ -9,6 +9,8 @@ import { SCENE_DIR_MAP } from '@/constants/image.constants';
 import pMap from 'p-map';
 import { getMimeTypeFromExt } from '@/utils/file.util';
 import { generateThumbnail, ThumbnailOptions } from '@/utils/image.util';
+import { sequelize } from '@/models';
+import sharp from 'sharp';
 
 
 
@@ -19,6 +21,10 @@ export interface ImageRecord {
   path: string;
   /** 图片大小 */
   size: number;
+  /** 图片宽度 */
+  width: number;
+  /** 图片高度 */
+  height: number;
   /** 图片类型 */
   type: string;
   /** 如果图片是属于某篇文章，可以关联文章 ID */
@@ -83,6 +89,21 @@ export class ImageService {
         
         // 存在则返回缩略图 URL
         return `${config.serverUrl}/uploads/${thumbRelPath}`;
+      } else {
+        // 策略 B: 同级目录下的 _thumb.avif (适用于 album photos 等)
+        const rootDir = path.resolve(config.upload.rootPath);
+        
+        let thumbRelPath = fsPath;
+        const lastDotIndex = thumbRelPath.lastIndexOf('.');
+        if (lastDotIndex !== -1) {
+          thumbRelPath = thumbRelPath.substring(0, lastDotIndex) + '_thumb.avif';
+        } else {
+          thumbRelPath += '_thumb.avif';
+        }
+        
+        const absThumbPath = path.resolve(rootDir, thumbRelPath);
+        await fs.access(absThumbPath);
+        return `${config.serverUrl}/uploads/${thumbRelPath}`;
       }
     } catch (error) {
       // 忽略所有错误（文件不存在、路径解析失败等），直接降级返回原图
@@ -96,7 +117,7 @@ export class ImageService {
    * @param {string} path - 原图相对路径
    * @returns {Promise<string>} - 原图的 URL
    */
-  public static async getOriginUrl(path: string): Promise<string> {
+  public static getOriginUrl(path: string): string {
     return `${config.serverUrl}${path}`;
   }
   /** 
@@ -159,6 +180,37 @@ export class ImageService {
     if (!Array.isArray(paths) || paths.length === 0) return;
 
     await pMap(paths, this.safeUnlink.bind(this), { concurrency: 5 });
+  }
+
+  /**
+   * 根据 ID 列表删除图片（包含文件和数据库记录）
+   * @param ids 图片 ID 列表
+   * @param transaction 事务
+   */
+  public static async deleteImagesByIds(ids: number[], transaction?: Transaction) {
+    if (!ids || ids.length === 0) return;
+
+    // 1. 查询图片路径
+    const images = await Image.findAll({
+      where: { id: { [Op.in]: ids } },
+      attributes: ['id', 'path'],
+      transaction
+    });
+
+    if (images.length === 0) return;
+
+    const paths = images.map(img => img.path);
+
+    // 2. 删除数据库记录
+    await Image.destroy({
+      where: { id: { [Op.in]: ids } },
+      transaction
+    });
+
+    // 3. 删除物理文件
+    // 注意：如果事务回滚，文件已经删除无法恢复。建议在事务提交后执行文件删除，
+    // 但由于无法获得事务提交的时机，这里直接执行。
+    await this.deleteImages(paths);
   }
 
   /**
@@ -282,7 +334,8 @@ export class ImageService {
    * ImageService.normalizeUrl('https://example.com/images/123.jpg');
    * // 返回: '/images/123.jpg'
    */
-  public static normalizeImagePath(url: string = '') {
+  public static normalizeImagePath(url: string | null = '') {
+    if (!url) return null;
     try {
       return new URL(url).pathname
     } catch (err) {
@@ -302,12 +355,13 @@ export class ImageService {
    * ]);
    * // 返回: ['/images/123.jpg', '/images/456.jpg']
    */
-  public static normalizeImagePaths(urls: string[] = []) {
+  public static normalizeImagePaths(urls: (string | null)[] = []) {
     if (!Array.isArray(urls)) return []
 
     return urls
       .filter(Boolean) // 过滤 null / undefined / ''
       .map(url => {
+        if (!url) return '';
         try {
           return new URL(url).pathname
         } catch (err) {
@@ -315,6 +369,7 @@ export class ImageService {
           return url
         }
       })
+      .filter(path => path !== '')
   }
 
   /** 
@@ -471,7 +526,7 @@ export class ImageService {
     params: ImageRecord,
     transaction?: Transaction
   ): Promise<Image> {
-    const { path, size, type, userId, postId, storage } = params;
+    const { path, size, type, userId, postId, storage, width, height } = params;
 
     // 参数校验
     if (!path || typeof path !== 'string' || !path.trim()) {
@@ -479,6 +534,12 @@ export class ImageService {
     }
     if (!Number.isInteger(size) || size <= 0) {
       throw new BadRequestError(`无效的图片大小: ${size}必须是正整数`)
+    }
+    if (!Number.isInteger(width) || width <= 0) {
+      throw new BadRequestError(`无效的图片宽度: ${width}必须是正整数`)
+    }
+    if (!Number.isInteger(height) || height <= 0) {
+      throw new BadRequestError(`无效的图片高度: ${height}必须是正整数`)
     }
     if(!type || typeof type !== 'string' || !type.trim() || !config.upload.allowedImageTypes.includes(type)){
       throw new BadRequestError(`无效的图片类型: ${type}，必须是 ${config.upload.allowedImageTypes.join(', ')}`)
@@ -498,6 +559,8 @@ export class ImageService {
     const createData: ImageRecord = {
       path: normalizedPath,
       size,
+      width,
+      height,
       type: type.toLowerCase().trim(),
       postId: postId && Number.isInteger(postId) ? postId : null,
       userId: userId && Number.isInteger(userId) ? userId : null,
@@ -592,10 +655,13 @@ export class ImageService {
     try {
       const stats = await fs.stat(absolutePath);
       const ext = path.extname(absolutePath);
+      const metadata = await sharp(absolutePath).metadata();
       const type = getMimeTypeFromExt(ext) || 'application/octet-stream';
       
       return {
         size: stats.size,
+        width: metadata.width || 0,
+        height: metadata.height || 0,
         type,
         absolutePath
       };
@@ -702,11 +768,13 @@ export class ImageService {
 
     for (const imgPath of params.imagePaths) {
       try {
-        const { size, type } = await ImageService.getImageMetadata(imgPath);
+        const { size, type, width, height } = await ImageService.getImageMetadata(imgPath);
 
         records.push({
           path: imgPath, // 数据库存储原始Web路径
           size,
+          width,
+          height,
           type,
           postId: params.postId ?? null,
           userId: params.userId ?? null,
@@ -720,5 +788,38 @@ export class ImageService {
     }
 
     return records
+  }
+
+  /**
+   * 删除图片记录
+   * @param articleId 文章 ID
+
+   */
+  public static async deleteWithRelations(
+    articleId: number,
+    options?: {
+      transaction?: Transaction
+    }
+  ): Promise<number> {
+    const useTransaction = options?.transaction ?? await sequelize.transaction();
+    try {
+      // 根据文章 ID 删除图片记录
+      const deletedCount = await Image.destroy({
+        where: {
+          postId: articleId
+        },
+        transaction: useTransaction
+      });
+      
+      if (!options?.transaction) {
+        await useTransaction.commit();
+      }
+      return deletedCount;
+    } catch (error) {
+      if (!options?.transaction) {
+        await useTransaction.rollback();
+      }
+      throw error;
+    }
   }
 }

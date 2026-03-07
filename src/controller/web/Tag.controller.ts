@@ -1,6 +1,6 @@
 import { TagService } from "../../services/Tag.service";
 import { Request, Response } from "express";
-import type { HotTagParams, TagListQuery } from "../../schemas/web/tag.schema";
+import type { HotTagQuery, TagListQuery } from '@/schemas/tag/tag.web';
 import type { TagListResult, HotTagResult } from "../../types/models/tag.type";
 
 export class TagController { 
@@ -57,7 +57,7 @@ export class TagController {
 
   public static async getHotTags(req: Request, res: Response) {
     try {
-      const params: HotTagParams = {
+      const params: HotTagQuery = {
         pageSize: Number(req.query.pageSize) || 10,
         withPostCount: Boolean(req.query.withCount) || true,
       }

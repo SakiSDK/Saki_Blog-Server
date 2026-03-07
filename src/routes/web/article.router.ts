@@ -1,0 +1,32 @@
+import { Router } from 'express'
+import { ArticleController } from '@/controller/web/Article.controller'
+import { zodValidate } from '@/middlewares/zodValidate'
+import { ArticleListQuerySchema, ArticleShortIdParamSchema } from '@/schemas/article/article.web'
+
+/** 路由 */
+const router: Router = Router()
+
+
+/** 
+ * @description: 获取文章列表
+ * @route GET /web/article
+*/
+router.get('/', zodValidate({
+  query: ArticleListQuerySchema,
+}), ArticleController.getArticleList)
+
+/** 
+ * @description: 获取最近文章列表
+ * @route GET /web/article/latest
+*/
+router.get('/latest', ArticleController.getLatestArticles)
+
+/** 
+ * @description: 获取文章详情，通过 shortId 获取文章详情
+ * @route GET /web/article/:shortId
+*/
+router.get('/:shortId', zodValidate({
+  params: ArticleShortIdParamSchema,
+}), ArticleController.getArticleDetail)
+
+export default router

@@ -2,7 +2,8 @@ import { BadRequestError, NotFoundError } from "../utils/errors";
 import { Op, Transaction } from "sequelize";
 import { sequelize, Category, ArticleCategory } from "../models/index";
 import type { Pagination } from "../types/app";
-import { CategoryListQuery } from '@/schemas/admin/category.schema';
+import { CategoryListQuery } from '../schemas/category/category.admin';
+import { buildListQuery } from '../utils/query.util';
 
 /**
  * 分类创建输入数据接口，定义创建分类时所需的字段
@@ -209,73 +210,32 @@ export class CategoryService {
    * @returns 分类列表及分页信息（分类数组、总数、当前页、每页条数、总页数）
    * @description 处理默认参数，构建查询条件，通过分页和排序查询分类列表
    */
-  public static async getCategoryList(query: CategoryListQuery): Promise<{
+  public static async getCategoryList(query: Partial<CategoryListQuery>): Promise<{
     categories: Category[],
     pagination: Pagination
   }> {
-    // 处理默认参数
-    const {
-      // 基础筛选条件
-      id,
-      keyword,
-      status,
-      // 时间参数
-      createdFrom,
-      createdTo,
-      // 分页参数
-      page = 1,
-      pageSize = 10,
-      // 排序参数
-      orderBy = 'createdAt',
-      sort = 'desc',
-    } = query;
-    const offset: number = (page - 1) * pageSize;
-    console.log("keyword:", keyword);
-
-    // 构建筛选条件
-    const whereConditions: any = {};
-    if (id) {
-      whereConditions.id = Number(id);
-    }
-    /** ---------- keyword 搜索 ---------- */
-    if (keyword?.trim()) {
-      const kw = keyword.trim();
-      whereConditions[Op.or] = [
-        { name: { [Op.like]: `%${kw}%` } },
-        { description: { [Op.like]: `%${kw}%` } }
-      ];
-    }
-    if (status) {
-      whereConditions.status = status;
-    }
-    if (createdFrom) {
-      whereConditions.createdAt = {
-        [Op.gte]: new Date(createdFrom),
-      };
-    }
-    if (createdTo) {
-      whereConditions.createdAt = {
-        ...whereConditions.createdAt,
-        [Op.lte]: new Date(createdTo),
-      };
-    }
-
-    // 执行分页查询
-    const { rows, count } = await Category.findAndCountAll({
-      order: [[orderBy, sort.toUpperCase()]],
-      where: whereConditions,
-      offset,
-      limit: pageSize,
+    // 1. 构建通用查询条件
+    const { where, order, offset, limit, page, pageSize } = buildListQuery(query, {
+      searchFields: ['name', 'description'],
+      exactFields: ['id', 'status'],
     });
 
-    // 返回分页结果
+    // 2. 执行分页查询
+    const { rows, count } = await Category.findAndCountAll({
+      where,
+      order: order as any,
+      offset,
+      limit,
+    });
+
+    // 3. 返回分页结果
     return {
       categories: rows,
       pagination: {
-        page: page,
-        pageSize,
+        page: Number(page),
+        pageSize: Number(pageSize),
         total: count,
-        totalPages: Math.ceil(count / pageSize),
+        totalPages: Math.ceil(count / Number(pageSize)),
       }
     };
   }

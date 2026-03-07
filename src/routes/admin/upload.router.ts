@@ -55,4 +55,18 @@ router.delete(
   UploadController.createDeleteHandler('articles/covers')
 );
 
+/** 
+ * 上传相册图片
+ * @route POST /admin/upload/album
+ * @group admin -上传管理
+ * @param {file[]} file.formData.required - 图片文件列表 (字段名: images, max: 5)
+ */
+router.post(
+  '/album',
+  upload.images({
+    path: 'albums'
+  }),
+  UploadController.uploadAlbumPhotos
+)
+
 export default router;

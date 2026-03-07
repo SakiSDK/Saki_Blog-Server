@@ -1,21 +1,51 @@
-import { DataTypes, Model, Op, Transaction } from "sequelize";
+import { DataTypes, Model, Op, Optional, Transaction } from "sequelize";
 import { sequelize } from './sequelize'
 import pinyin from 'pinyin'
-import { AlbumAttributes, AlbumCreationAttributes } from "../types/album";
 
 
-export class Album extends Model<
-  AlbumAttributes, AlbumCreationAttributes
-> implements AlbumAttributes {
+/** 相册模型属性类型定义 */
+export interface AlbumAttributes {
+  /** 相册 ID */
+  id: number;
+  /** 相册名 */
+  name: string;
+  /** 相册别名 */
+  slug: string;
+  /** 相册标题 */
+  title: string | null;
+  /** 相册简介 */
+  description?: string | null;
+  /** 封面图片 ID */
+  coverPhotoId?: number | null;
+  /** 相册内图片数量 */
+  photoCount: number;
+  /** 相册状态 */
+  status?: 'public' | 'private';
+  /** 相册优先级 */
+  priority?: number;
+  /** 创建时间 */
+  createdAt: Date;
+  /** 更新时间 */
+  updatedAt: Date;
+  /** 创建者 */
+  creator: string;
+}
+
+
+interface AlbumCreationAttributes extends Optional<AlbumAttributes, 'id' | 'updatedAt' | 'createdAt' | 'status' | 'creator'> { };
+
+
+export class Album extends Model< AlbumAttributes, AlbumCreationAttributes> implements AlbumAttributes {
   public id!: number;
   public name!: string;
   public title!: string | null;
   public slug!: string;
   public description?: string | null;
   public coverPhotoId?: number | null;
-  public coverPhotoUrl?: string | null;
-  public coverPhotoThumbnailUrl?: string | null;
   public photoCount!: number;
+  /** 相册优先级 */
+  public priority?: number;
+  public status?: 'public' | 'private';
   public readonly createdAt!: Date;
   public updatedAt!: Date;
   public creator!: string;
@@ -90,24 +120,27 @@ Album.init({
     comment: '封面照片ID',
     field: 'cover_photo_id',
   },
-  coverPhotoUrl: {
-    type: new DataTypes.STRING(255),
-    allowNull: true,
-    comment: '封面照片URL',
-    field: 'cover_photo_url',
-  },
-  coverPhotoThumbnailUrl: {
-    type: new DataTypes.STRING(255),
-    allowNull: true,
-    comment: '封面照片缩略图URL',
-    field: 'cover_photo_thumbnail_url',
-  },
   photoCount: {
     type: DataTypes.INTEGER.UNSIGNED,
     allowNull: false,
     defaultValue: 0,
     comment: '相册照片数',
     field: 'photo_count',
+  },
+  status: {
+    type: DataTypes.ENUM('public', 'private'),
+    allowNull: false,
+    defaultValue: 'public',
+    comment: '相册状态',
+    field: 'status',
+  },
+  /** 相册优先级 */
+  priority: {
+    type: DataTypes.INTEGER.UNSIGNED,
+    allowNull: true,
+    defaultValue: 0,
+    comment: '相册优先级',
+    field: 'priority',
   },
   createdAt: {
     type: DataTypes.DATE,

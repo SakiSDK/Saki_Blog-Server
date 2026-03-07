@@ -1,6 +1,6 @@
 import { Category } from './../../models/Category.model';
 import { Pagination } from '../app';
-export type { CategoryListParams } from '../../schemas/web/category.schema';
+export type { CategoryListQuery as CategoryListParams } from '../../schemas/category/category.web';
 
 // 定义返回的Category类型
 export type CategoryListItem = Pick<

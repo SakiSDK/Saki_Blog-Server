@@ -21,12 +21,18 @@ export const zId = z
   )
   .describe("正整数 ID");
 
+/** 通用整数 */
+export const zInteger = z
+  .coerce.number("必须是数字")
+  .int("必须是整数")
+
 /** 非负整数 ID（允许 0） */
 export const zNonNegativeId = z
   .number("ID 必须是数字")
   .int("ID 必须是整数")
   .nonnegative("ID 必须是非负数")
   .describe("非负整数 ID");
+
 
 /** 页码 */
 export const zPageNum = z
@@ -35,6 +41,7 @@ export const zPageNum = z
   .positive("页码必须是正数")
   .min(1, "页码最小为 1")
   .default(1)
+  .describe("页码");
 
 /** 每页数量 */
 export const zPageSize = z
@@ -44,6 +51,7 @@ export const zPageSize = z
   .min(1, "每页数量最小为 1")
   .max(1000, "每页数量最大为 1000")
   .default(10)
+  .describe("每页数量");
 
 /** 通用非负整数（如计数、状态码） */
 export const zNonNegativeNumber = z
@@ -159,6 +167,15 @@ export const zVersion = z
   .string("版本号必须是文本")
   .regex(/^\d+\.\d+\.\d+$/, "版本号格式应为 x.y.z")
   .describe("语义化版本号");
+  
+/** 搜索关键字 */
+export const zSearchKeyword = z
+  .string("搜索关键词必须是文本")
+  .trim()
+  .min(1, "搜索关键词不能为空")
+  .max(255, "搜索关键词最多 255 个字符")
+  .describe("搜索关键词");
+
 
 /** ---------- 联系方式 ---------- */
 /** 邮箱 */
@@ -189,6 +206,13 @@ export const zIp = z
   .describe("IP 地址");
 
 /** ---------- 日期和时间 ---------- */
+/** 日期（支持 Date 对象、时间戳、ISO 字符串） */
+export const zDate = z
+  .union([z.date(), z.string(), z.number()])
+  .transform((arg) => new Date(arg))
+  .refine((date) => !isNaN(date.getTime()), { message: "无效的日期格式" })
+  .describe("日期");
+
 /** ISO 8601 日期字符串（如 "2025-01-01"） */
 export const zDateStr = z
   .string("日期必须是文本")
@@ -267,6 +291,13 @@ export const zDateRangeQuery = z.object({
   (data) => !(data.startDate && data.endDate) || data.startDate <= data.endDate,
   { message: "开始日期不能晚于结束日期" }
 );
+
+/** 创建开始时间 */
+export const zStartDate = zDate.describe("开始日期");
+
+/** 创建结束时间 */
+export const zEndDate = zDate.describe("结束日期");
+
 
 /** ---------- 文件相关 ---------- */
 /** 文件 MIME 类型 */

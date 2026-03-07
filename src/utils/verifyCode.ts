@@ -1,4 +1,4 @@
-import { redisClient } from './redis'
+import { redisClient } from '@/libs/redis'
 import { BadRequestError } from './errors'
 import crypto from 'crypto'
 import nodemailer from 'nodemailer'

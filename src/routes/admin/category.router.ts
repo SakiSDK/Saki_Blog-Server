@@ -2,11 +2,9 @@ import { Router } from 'express';
 import {CategoryController} from '@/controller/admin/Category.controller';
 import { zodValidate } from '@/middlewares/zodValidate';
 import {
-  CategoryBulkDeleteQuerySchema, CategoryListQuerySchema,
-  CategoryCreateBodySchema,
-  CategoryStatusParamsSchema
-} from '@/schemas/admin/category.schema';
-import { TagDeleteParamsSchema } from '@/schemas/admin/tag.schema';
+  CategoryBulkDeleteQuerySchema, CategoryListQuerySchema, CategoryCreateBodySchema, CategoryStatusParamsSchema
+} from '@/schemas/category/category.admin';
+import { TagDeleteParamsSchema } from '@/schemas/tag/tag.admin';
 
 
 const router: Router = Router();

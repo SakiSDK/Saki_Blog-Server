@@ -1,4 +1,4 @@
-import { Model, DataTypes, Optional, Transaction } from 'sequelize';
+import { Model, DataTypes, Optional } from 'sequelize';
 import { sequelize } from './sequelize';
 import { config } from '@/config';
 
@@ -11,6 +11,10 @@ export interface ImageAttributes {
   path: string;
   /** 图片大小 */
   size: number;
+  /** 图片宽度 */
+  width: number;
+  /** 图片高度 */
+  height: number;
   /** 图片类型 */
   type: string;
   /** 如果图片是属于某篇文章，可以关联文章 ID */
@@ -30,6 +34,8 @@ export class Image extends Model<ImageAttributes, ImageCreationAttributes> imple
   public id!: number;
   public path!: string;
   public size!: number;
+  public width!: number;
+  public height!: number;
   public type!: string;
   public postId!: number | null;
   public userId!: number | null;
@@ -60,6 +66,18 @@ Image.init({
       min: 1,
     },
     comment: '图片大小(单位: 字节)',
+  },
+  width: {
+    type: DataTypes.INTEGER.UNSIGNED,
+    allowNull: false,
+    defaultValue: 0,
+    comment: '图片宽度',
+  },
+  height: {
+    type: DataTypes.INTEGER.UNSIGNED,
+    allowNull: false,
+    defaultValue: 0,
+    comment: '图片高度',
   },
   type: {
     type: DataTypes.STRING(50),

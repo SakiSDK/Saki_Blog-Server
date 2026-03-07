@@ -1,7 +1,7 @@
 import { sequelize, User } from '@/models';
 import { NotFoundError, BadRequestError } from '@/utils/errors';
 import { config } from '@/config'
-import { createShortIdCodec } from '@/utils/shortId.codec';
+import { resolveId } from '@/utils/id.util';
 
 
 /** ---------- 类型定义 ---------- */
@@ -25,17 +25,8 @@ export class UserService {
    * @throws { NotFoundError } - 如果用户不存在
    */
   public static async verifyUserId(rawId: number | string): Promise<number> {
-    let userId: number;
+    const userId = resolveId(rawId, config.salt.user);
 
-    if (typeof rawId !== 'number') {
-      const { decode } = createShortIdCodec(config.salt.user);
-      // 将作者 ID 由短ID转为数字ID
-      const decoded = decode(rawId);
-      if (decoded === null) throw new BadRequestError('短ID无效');
-      userId = decoded;
-    } else {
-      userId = rawId;
-    }
 
     const user = await User.findOne({
       where: {
@@ -98,18 +89,9 @@ export class UserService {
    * @param rawId - 用户ID(可以是短 ID 或者 普通 ID)
    * @returns 用户信息
    */
-  public static async getUserInfo(rawId: number): Promise<User> {
-    let userId: number;
+  public static async getUserInfo(rawId: number | string): Promise<User> {
+    const userId = resolveId(rawId, config.salt.user);
 
-    if (typeof rawId !== 'number') {
-      const { decode } = createShortIdCodec(config.salt.user);
-      // 将作者 ID 由短ID转为数字ID
-      const decoded = decode(rawId);
-      if (decoded === null) throw new BadRequestError('短ID无效');
-      userId = decoded;
-    } else {
-      userId = rawId;
-    }
 
 
     const user = await User.findByPk(userId);
@@ -122,7 +104,7 @@ export class UserService {
    * @param rawId - 用户ID(可以是短 ID 或者 普通 ID)
    * @returns 用户基础信息
    */
-  public static async getUserBaseInfo(rawId: number): Promise<UserBaseInfo> {
+  public static async getUserBaseInfo(rawId: number | string): Promise<UserBaseInfo> {
     const userId = await this.verifyUserId(rawId);
     const user = await User.findByPk(userId);
     if (!user) throw new NotFoundError('用户不存在');

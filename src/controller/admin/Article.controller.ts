@@ -5,7 +5,6 @@ import { CategoryService } from '@/services/Category.service';
 import { ImageService } from '@/services/Image.service';
 import path from 'path';
 import { UserService } from '@/services/User.service';
-import { SCENE_DIR_MAP } from '@/constants/image.constants';
 
 /** ---------- 辅助函数 ---------- */
 /** 
@@ -62,10 +61,12 @@ export class ArticleController {
 
       // 确保 imagePaths 是数组类型
       let normalizeRawImageUrls: string[] = [];
-      if (!Array.isArray(rawImageUrls)) {
-        normalizeRawImageUrls = [rawImageUrls];
-      } else {
-        normalizeRawImageUrls = rawImageUrls;
+      if (rawImageUrls) {
+        if (!Array.isArray(rawImageUrls)) {
+          normalizeRawImageUrls = [rawImageUrls];
+        } else {
+          normalizeRawImageUrls = rawImageUrls;
+        }
       }
 
 
@@ -88,22 +89,34 @@ export class ArticleController {
       const tempCoverPath = ImageService.normalizeImagePath(rawCoverPath);
       const tempImagePaths = ImageService.normalizeImagePaths(normalizeRawImageUrls);
 
+      console.log('tempCoverPath:', tempCoverPath);
+      console.log('tempImagePaths:', tempImagePaths);
 
       // 验证封面图是否存在
-      await ImageService.validateExist(tempCoverPath);
+      if (tempCoverPath) {
+        await ImageService.validateExist(tempCoverPath);
+      }
       // 验证文章内容中图片列表是否存在
-      await ImageService.validateExistBatch(tempImagePaths);
+      if (tempImagePaths.length > 0) {
+        await ImageService.validateExistBatch(tempImagePaths);
+      }
 
       // 验证成功后，拷贝图片到正式目录，返回正式路径，后续操作成功后删除临时文件
-      coverPath = await ImageService.copyToFormalDir(tempCoverPath, 'article_cover');
-      imagePaths = await ImageService.copyToFormalDirBatch(tempImagePaths, 'article_image'); 
+      if (tempCoverPath) {
+        coverPath = await ImageService.copyToFormalDir(tempCoverPath, 'article_cover');
+      }
+      if (tempImagePaths.length > 0) {
+        imagePaths = await ImageService.copyToFormalDirBatch(tempImagePaths, 'article_image');
+      }
     
       // 生成文章封面的缩略图，到指定目录
-      await ImageService.generateThumbnail(coverPath, {
-        width: 200,
-        height: 200,
-        scene: 'article_cover_thumb',
-      });
+      if (coverPath) {
+        await ImageService.generateThumbnail(coverPath, {
+          width: 200,
+          height: 200,
+          scene: 'article_cover_thumb',
+        });
+      }
 
       // 临时存放的目录地址和正式存放的目录地址
       let content = rawContent;
@@ -133,7 +146,12 @@ export class ArticleController {
 
       // 假如创建成功了，再删除临时目录中的图片
       if (article) {
-        await ImageService.deleteImages([tempCoverPath, ...tempImagePaths]);
+        const pathsToDelete: string[] = [];
+        if (tempCoverPath) pathsToDelete.push(tempCoverPath);
+        if (tempImagePaths) pathsToDelete.push(...tempImagePaths);
+        if (pathsToDelete.length > 0) {
+          await ImageService.deleteImages(pathsToDelete);
+        }
       }
 
       res.status(201).json({
@@ -161,6 +179,7 @@ export class ArticleController {
       });
     }
   }
+  
   /**
    * @description: 获取文章列表
    * GET /admin/article/
@@ -168,19 +187,101 @@ export class ArticleController {
   public static async getArticleList(req: Request, res: Response) {
     try {
       const query = req.query;
-      const result = await ArticleService.getArticleList(query as any);
-      
+      const { list, pagination } = await ArticleService.getArticleList(query as any);
       res.status(200).json({
         code: 200,
         message: '文章列表获取成功',
         success: true,
-        data: result,
+        data: {
+          list,
+          pagination: {
+            ...pagination,
+            hasPrev: pagination.page > 1,
+            hasNext: pagination.page < pagination.totalPages,
+          },
+        },
       });
     } catch (error: any) {
       console.error('获取文章列表失败:', error);
       res.status(500).json({
         code: 500,
         message: error.message || '获取文章列表失败',
+        success: false,
+        data: null,
+      });
+    }
+  }
+
+  /**
+   * @description: 获取文章详情
+   * GET /admin/article/:id
+   */
+  public static async getArticleDetail(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const article = await ArticleService.getArticleDetail(Number(id));
+      res.status(200).json({
+        code: 200,
+        message: '文章详情获取成功',
+        success: true,
+        data: article,
+      });
+    } catch (error: any) {
+      console.error('获取文章详情失败:', error);
+      res.status(500).json({
+        code: 500,
+        message: error.message || '获取文章详情失败',
+        success: false,
+        data: null,
+      });
+    }
+  }
+  
+  /** 
+   * @description: 删除文章及其对应的关联关系
+   * DEL /admin/article/:id
+   */
+  public static async deleteArticle(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      await ArticleService.deleteArticleWithRelations(Number(id));
+      res.status(200).json({
+        code: 200,
+        message: '文章删除成功',
+        success: true,
+        data: null,
+      });
+    } catch (error: any) {
+      console.error('删除文章失败:', error);
+      res.status(500).json({
+        code: 500,
+        message: error.message || '删除文章失败',
+        success: false,
+        data: null,
+      });
+    }
+  }
+
+  /** 
+   * @description: 搜索文章
+   * GET /admin/article/search
+   */
+  public static async searchArticles(req: Request, res: Response) {
+    try {
+      const query = req.query;
+      const result = await ArticleService.searchArticles(query as any);
+      console.log("result: ", result.list);
+      res.status(200).json({
+        code: 200,
+        message: '文章搜索成功',
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      console.error('搜索文章失败:', error);
+      res.status(500).json({
+        code: 500,
+        message: error.message || '搜索文章失败',
         success: false,
         data: null,
       });

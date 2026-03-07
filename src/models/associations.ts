@@ -1,4 +1,11 @@
-import { Article, User, Comment, Tag, Photo, Album, Category } from './index'
+import { Article } from './Article.model';
+import { User } from './User.model';
+import { Comment } from './Comment.model';
+import { Tag } from './Tag.model';
+import { Photo } from './Photo.model';
+import { Album } from './Album.model';
+import { Category } from './Category.model';
+import { Image } from './Image.model';
 
 export const initializeModelAssociations = () => {
 
@@ -10,7 +17,30 @@ export const initializeModelAssociations = () => {
   Album.hasMany(Photo, {
     foreignKey: 'album_id',
     as: 'photos',
-    onDelete: 'RESTRICT',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  })
+
+  /**
+   * 【相册】 → 【封面图片】
+   * 关系类型：多对一（实际上是一对一）
+   * 说明：相册有一个封面图片
+   */
+  Album.belongsTo(Photo, {
+    foreignKey: 'cover_photo_id',
+    as: 'coverPhoto',
+    constraints: false,
+  })
+
+  /**
+   * 【照片】 → 【图片文件】
+   * 关系类型：多对一
+   * 说明：照片关联一个图片文件
+   */
+  Photo.belongsTo(Image, {
+    foreignKey: 'image_id',
+    as: 'image',
+    onDelete: 'CASCADE',
     onUpdate: 'CASCADE',
   })
 
