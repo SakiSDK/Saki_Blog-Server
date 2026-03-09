@@ -8,6 +8,54 @@ import { ImageService } from './Image.service';
  * 照片服务类
  */
 export class PhotoService {
+  /** 
+   * 根据图片ID删除图片，并删除和IMAGE表的关联关系
+   * @param imageId 图片ID
+   * @param transaction 数据库事务
+   */
+  async deletePhotoByImageId(imageId: number, transaction?: Transaction) {
+    const useTransaction = transaction || await sequelize.transaction();
+    try {
+      // 1. 检查图片是否存在
+      const image = await Image.findByPk(imageId, { transaction: useTransaction });
+      if (!image) {
+        throw new NotFoundError(`图片ID ${imageId} 不存在`);
+      }
+
+      // 2. 查找关联的 Photo 记录，以便更新相册计数
+      const photo = await Photo.findOne({
+        where: { imageId },
+        transaction: useTransaction
+      });
+
+      if (photo) {
+        // 2.1 更新相册照片数量
+        const album = await Album.findByPk(photo.albumId, { transaction: useTransaction });
+        if (album) {
+          await album.decrement('photoCount', { transaction: useTransaction });
+        }
+        
+        // 2.2 删除 Photo 记录 (虽然 Image 删除会级联删除 Photo，但显式删除更清晰，且为了保证逻辑顺序)
+        await photo.destroy({ transaction: useTransaction });
+      }
+
+      // 3. 删除 Image 记录和物理文件
+      // 注意：由于 Photo 表设置了 onDelete: 'CASCADE'，删除 Image 会自动删除 Photo
+      // 但上面我们已经显式处理了 Photo，这里再删 Image 也是安全的
+      await ImageService.deleteImagesByIds([imageId], useTransaction);
+
+      // 提交事务
+      if (!transaction) {
+        await useTransaction.commit();
+      }
+    } catch (error) {
+      if (!transaction) {
+        await useTransaction.rollback();
+      }
+      throw error;
+    }
+  }
+
   /**
    * 创建照片
    * @param albumId 相册ID

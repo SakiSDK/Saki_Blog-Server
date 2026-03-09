@@ -50,7 +50,6 @@ export class TagController {
         message: "创建标签失败",
         data: null,
       });
-      return;
     }
   }
 

@@ -2,6 +2,8 @@ import { sequelize, User } from '@/models';
 import { NotFoundError, BadRequestError } from '@/utils/errors';
 import { config } from '@/config'
 import { resolveId } from '@/utils/id.util';
+import { Transaction } from 'sequelize';
+import { UserCreateData } from '@/schemas/user/user.admin';
 
 
 /** ---------- 类型定义 ---------- */
@@ -92,8 +94,6 @@ export class UserService {
   public static async getUserInfo(rawId: number | string): Promise<User> {
     const userId = resolveId(rawId, config.salt.user);
 
-
-
     const user = await User.findByPk(userId);
     if (!user) throw new NotFoundError('用户不存在');
     return user;
@@ -114,6 +114,64 @@ export class UserService {
       nickname: user.nickname,
       avatar: user.avatar || null,
       bio: user.bio || null,
+    }
+  }
+
+  /** 
+   * 新增用户
+   * @param params - 用户参数
+   * @returns 用户基础信息
+   */
+  public static async createUser(params: {
+    nickname: string,
+    avatar?: string,
+    bio?: string,
+    email: string,
+    password: string,
+  }, transaction?: Transaction): Promise<UserCreateData> {
+    const { nickname, avatar, bio, email, password } = params;
+    const useTransaction = transaction || await sequelize.transaction();
+    try {
+      // 检查用户名是否已存在
+      const existUser = await User.findOne({
+        where: {
+          nickname
+        },
+      });
+      if (existUser) throw new BadRequestError('用户名已存在');
+
+      // 检查邮箱是否已经存在
+      const existEmailUser = await User.findOne({
+        where: {
+          email
+        },
+      });
+      if (existEmailUser) throw new BadRequestError('邮箱已存在');
+
+
+      const user = await User.create({
+        nickname,
+        avatar,
+        bio,
+        email,
+        password,
+      }, { transaction: useTransaction });
+      if (!transaction) {
+        await useTransaction.commit();
+      }
+      return {
+        id: user.id,
+        shortId: user.shortId,
+        nickname: user.nickname,
+        avatar: user.avatar || null,
+        bio: user.bio || null,
+        email: user.email,
+      }
+    } catch (error) {
+      if (!transaction) {
+        await useTransaction.rollback();
+      }
+      throw error;
     }
   }
 }

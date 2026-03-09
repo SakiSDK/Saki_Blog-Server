@@ -54,9 +54,9 @@ export class AuthController {
       // 设置HttpOnly Cookie 存储 refresh token（防止XSS攻击）
       res.cookie('refreshToken', tokens.refreshToken, {
         httpOnly: true,
-        secure: config.env === 'production',
+        secure: config.env === 'production' && req.secure, // 仅在 https 下启用 secure，防止本地 http 调试无法设置 cookie
         sameSite: 'strict',
-        maxAge: config.jwt.refreshExpiresIn * 1000 // 7天过期
+        maxAge: config.jwt.refreshExpiresIn * 1000 // refresh token 过期时间 (30天)
       });
 
       // 返回accessToken和用户信息

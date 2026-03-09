@@ -6,7 +6,7 @@ import path from 'path';
 import fs from 'fs/promises'
 import { ImageSceneType } from '@/constants/image.scene';
 import { SCENE_DIR_MAP } from '@/constants/image.constants';
-import pMap from 'p-map';
+// import pMap from 'p-map';
 import { getMimeTypeFromExt } from '@/utils/file.util';
 import { generateThumbnail, ThumbnailOptions } from '@/utils/image.util';
 import { sequelize } from '@/models';
@@ -179,6 +179,7 @@ export class ImageService {
   public static async deleteImages(paths: string[]) {
     if (!Array.isArray(paths) || paths.length === 0) return;
 
+    const { default: pMap } = await import('p-map');
     await pMap(paths, this.safeUnlink.bind(this), { concurrency: 5 });
   }
 
@@ -295,6 +296,7 @@ export class ImageService {
     console.log('开始批量移动图片 tempPaths:', tempPaths)
 
     // 使用 p-map 控制并发数，防止跑太多导致内存或网络崩掉
+    const { default: pMap } = await import('p-map');
     await pMap(
       tempPaths,
       async (tempPath: string) => {
@@ -601,9 +603,10 @@ export class ImageService {
     const CONCURRENCY = 5;
 
     try {
+      const { default: pMap } = await import('p-map');
       const images = await pMap(
         params,
-        async (param) => await this.createImageRecord(param, transaction),
+        async (param: any) => await this.createImageRecord(param, transaction),
         {
           concurrency: CONCURRENCY,
           stopOnError: true
