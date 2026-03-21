@@ -1,9 +1,9 @@
 import { redisClient } from '@/libs/redis'
-import { BadRequestError } from './errors'
+import { BadRequestError } from './error.util'
 import crypto from 'crypto'
 import nodemailer from 'nodemailer'
 import { config } from '../config/index';
-import { generateDeviceId, RateLimiter } from '../utils/rateLimit'
+import { generateDeviceId, RateLimiter } from '../utils/rate-limit.util'
 
 
 /**

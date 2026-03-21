@@ -1,4 +1,4 @@
-// import { avatarUploader, handleUploadError } from "../../utils/multer-config";
+// import { avatarUploader, handleUploadError } from "../../utils/multer.util";
 // import { UserController } from "../../controller/User.controller";
 // import { Router } from "express";
 // import { authenticateToken } from "../../middlewares/auth";

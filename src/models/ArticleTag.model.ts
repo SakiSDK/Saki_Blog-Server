@@ -2,7 +2,7 @@ import { DataTypes, Model, Optional, Op, Transaction } from 'sequelize'
 import { sequelize } from './sequelize'
 import { Article } from './Article.model'
 import { Tag } from './Tag.model'
-import { BadRequestError, NotFoundError } from '@/utils/errors';
+import { BadRequestError, NotFoundError } from '@/utils/error.util';
 
 export interface ArticleTagAttributes {
   postId: number;

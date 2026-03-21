@@ -4,10 +4,11 @@ import { sequelize } from './sequelize'
 import { JwtService, JwtPayload } from '@/libs/jwt'
 import {
   UnauthorizedError
-} from '@/utils/errors'
+} from '@/utils/error.util'
 import { config } from '@/config/index';
 import crypto from 'crypto'
 import { createShortIdCodec } from '@/utils/shortId.codec'
+import { Gender } from '@/schemas/user/user.share'
 
 
 /** 安全用户信息（登录后返回） */
@@ -162,7 +163,7 @@ export class User extends Model<UserAttributes, UserCreationAttributes> implemen
     // 按email查找已有账号，自动绑定Google
     if (!user && email) {
       user = await User.findOne({
-        where: { googleId }
+        where: { email }
       })
       if (user) {
         await user.update({
@@ -196,6 +197,68 @@ export class User extends Model<UserAttributes, UserCreationAttributes> implemen
 
     // 生成对应的shortId，并保存userId
     // 生成shortId（统一在create后处理，或移到beforeCreate）
+    if (!user.shortId) {
+      const { encode } = createShortIdCodec(config.salt.user);
+      const shortId = encode(user.id);
+      await user.update({ shortId: shortId });
+    }
+
+    return this.generateTokens(user);
+  }
+
+  /** QQ登录专用 */
+  public static async findOrCreateUserByQQId(params: {
+    qqId: string,
+    qqNickname: string,
+    email: string,
+    avatar: string,
+    gender: Gender,
+  }): Promise<{
+    user: SafeUser;
+    tokens: {
+      accessToken: string;
+      refreshToken: string
+    }
+  }> {
+    const { qqId, qqNickname, email, avatar, gender } = params;
+    let user = await User.findOne({ where: { qqId } });
+
+    // 用户名，昵称
+    const username = `qq_${qqId.slice(-8)}`;
+    const nickname = qqNickname || `用户_${generateRandomSuffix()}`;
+
+    // 按email查找已有账号，自动绑定QQ
+    if (!user && email) {
+      user = await User.findOne({
+        where: { email }
+      })
+      if (user) {
+        await user.update({
+          qqId: qqId,
+        })
+        if (!user.avatar && avatar) await user.update({ avatar: avatar })
+        if (!user.username || user.nickname === '用户') {
+          await user.update({nickname: nickname})
+        }
+        return this.generateTokens(user); // 直接生成令牌返回
+      }
+    }
+
+    // 无对应用户，创建新用户
+    if (!user) {
+      user = await User.create({
+        qqId: qqId,
+        email: email || `qq_${qqId}@your-domain.com`, // 邮箱可选
+        username: username,
+        nickname: nickname,
+        gender: gender || 'other', // 默认性别
+        status: 'active', // 自动激活
+        role: 'user',
+        avatar: avatar || undefined
+      });
+    }
+
+    // 生成对应的shortId
     if (!user.shortId) {
       const { encode } = createShortIdCodec(config.salt.user);
       const shortId = encode(user.id);

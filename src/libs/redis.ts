@@ -1,7 +1,7 @@
 import Redis from 'ioredis';
 import { config } from '@/config';
 import { Store, SessionData } from 'express-session';
-import { InternalServerError } from '@/utils/errors';
+import { InternalServerError } from '@/utils/error.util';
 
 
 /** ---------- 类型定义 ---------- */

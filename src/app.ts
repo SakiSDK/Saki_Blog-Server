@@ -1,12 +1,13 @@
 import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import session from 'express-session';
+import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { config } from './config/index'
-import { logger, requestLogger } from '@/utils/logger'
-import { AppError } from './utils/errors';// 根据你的实际路径调整
+import { logger, requestLogger } from '@/utils/logger.util'
+import { AppError } from './utils/error.util';// 根据你的实际路径调整
 import { syncDatabase, testConnection } from './models/sequelize';
 import { initializeModels } from './models';
 import apiRoutes from './routes/index'
@@ -96,6 +97,8 @@ export class App {
     // 请求体解析
     this.app.use(express.json({ limit: '10mb' }))
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }))
+    // Cookie解析
+    this.app.use(cookieParser())
     // 使用自定义请求日志中间件
     this.app.use(requestLogger())
     //开发环境日志

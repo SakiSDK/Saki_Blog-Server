@@ -1,7 +1,7 @@
 import { DataTypes, Model, Optional, Transaction } from "sequelize";
 import { sequelize } from "./sequelize";
 import { Article, Category } from "../models/index";
-import { NotFoundError } from '@/utils/errors';
+import { NotFoundError } from '@/utils/error.util';
 
 export interface ArticleCategoryAttributes {
   postId: number;

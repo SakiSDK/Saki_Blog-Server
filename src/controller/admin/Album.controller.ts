@@ -167,6 +167,38 @@ export class AlbumController {
     }
   }
 
+  /** 
+   * @description: 删除相册内的照片
+   * DELETE /admin/album/:id/photos
+   */
+  public static async deletePhotosInAlbum(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      let { photoIds } = req.query as any;
+      
+      // 确保 photoIds 始终是数组，兼容单个元素或数组形式
+      if (!Array.isArray(photoIds)) {
+        photoIds = [photoIds];
+      }
+
+      await AlbumService.deletePhotosByAlbumId(Number(id), photoIds.map(Number));
+      res.status(200).json({
+        code: 200,
+        message: '相册内照片删除成功',
+        success: true,
+        data: null,
+      });
+    } catch (error: any) {
+      console.error('相册内照片删除失败:', error);
+      res.status(500).json({
+        code: 500,
+        message: error.message || '相册内照片删除失败',
+        success: false,
+        data: null,
+      });
+    }
+  }
+
   /**
    * @description: 设置相册封面
    * PUT /admin/album/:id/cover

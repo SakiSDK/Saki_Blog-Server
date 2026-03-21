@@ -29,4 +29,12 @@ router.get('/:shortId', zodValidate({
   params: ArticleShortIdParamSchema,
 }), ArticleController.getArticleDetail)
 
+/** 
+ * @description: 点赞文章
+ * @route POST /web/article/:shortId/like
+*/
+router.post('/:shortId/like', zodValidate({
+  params: ArticleShortIdParamSchema,
+}), ArticleController.likeArticle)
+
 export default router

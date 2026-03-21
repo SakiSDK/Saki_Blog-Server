@@ -1,5 +1,5 @@
 import { sequelize, User } from '@/models';
-import { NotFoundError, BadRequestError } from '@/utils/errors';
+import { NotFoundError, BadRequestError } from '@/utils/error.util';
 import { config } from '@/config'
 import { resolveId } from '@/utils/id.util';
 import { Transaction } from 'sequelize';

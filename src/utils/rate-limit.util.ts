@@ -1,6 +1,6 @@
 import { Redis } from 'ioredis'
 import crypto from 'crypto'
-import { BadRequestError } from './errors'
+import { BadRequestError } from './error.util'
 
 
 /** ---------- 限流规则类型 ---------- */

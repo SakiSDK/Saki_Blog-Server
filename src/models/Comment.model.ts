@@ -24,6 +24,7 @@ export interface CommentAttributes {
   userId: number;    // 用户ID
   parentId?: number;   // 父级评论ID
   status: 'pending' | 'approved' | 'rejected';
+  likesCount: number;  // 评论点赞数
   isAuthor: boolean;   // 是否是作者
   userDevice?: string;   // 用户设备
   userBrowser?: string;  // 用户浏览器信息
@@ -37,7 +38,7 @@ interface CommentCreationAttributes
   extends Optional<CommentAttributes,
     'id' | 'createdAt' | 'updatedAt' | 'status' | 'parentId' |
     'isAuthor' | "userDevice" | "userBrowser" | "userRegion" |
-    "userIp"
+    "userIp" | "likesCount"
   > { }
 
 export class Comment extends Model<CommentAttributes, CommentCreationAttributes> implements CommentAttributes { 
@@ -243,6 +244,13 @@ Comment.init(
       // defaultValue: 'pending',
       defaultValue: 'approved',
       comment: '评论状态',
+    },
+    likesCount: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: false,
+      defaultValue: 0,
+      comment: '评论点赞数',
+      field: 'likes_count',
     },
     isAuthor: {
       type: DataTypes.BOOLEAN,

@@ -1,6 +1,6 @@
 import svgCaptcha, { CaptchaObj } from 'svg-captcha';
 import crypto from 'crypto'
-import { NotFoundError } from './errors';
+import { NotFoundError } from './error.util';
 
 
 /** ---------- 类型定义 ---------- */

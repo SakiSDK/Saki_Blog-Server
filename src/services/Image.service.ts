@@ -1,6 +1,6 @@
 import { Image } from '@/models/Image.model';
 import { Op, Transaction } from 'sequelize';
-import { BadRequestError, InternalServerError, NotFoundError } from '@/utils/errors';
+import { BadRequestError, InternalServerError, NotFoundError } from '@/utils/error.util';
 import { config } from '@/config';
 import path from 'path';
 import fs from 'fs/promises'
@@ -153,13 +153,26 @@ export class ImageService {
       throw new BadRequestError('非法文件路径，包含上级目录遍历符');
     }
 
-    const absPath: string = path.join(config.upload.rootPath, relativePath);
+    // 规范化路径：移除可能重复的 uploads 前缀
+    let cleanPath = relativePath.replace(/\\/g, '/');
+    if (cleanPath.startsWith('/uploads/')) {
+      cleanPath = cleanPath.substring(9);
+    } else if (cleanPath.startsWith('uploads/')) {
+      cleanPath = cleanPath.substring(8);
+    }
+    cleanPath = cleanPath.replace(/^\/+/, ''); // 移除开头的斜杠
+
+    const absPath: string = path.join(config.upload.rootPath, cleanPath);
 
     try {
       await fs.unlink(absPath);
+      console.log(`[ImageService] 成功删除文件: ${absPath}`);
     } catch (error) {
       // 文件不存在直接忽略
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return;
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+         console.log(`[ImageService] 文件不存在跳过删除: ${absPath}`);
+         return;
+      }
       throw new InternalServerError(`删除图片失败: ${(error as any).message}`);
     }
   }
@@ -211,7 +224,18 @@ export class ImageService {
     // 3. 删除物理文件
     // 注意：如果事务回滚，文件已经删除无法恢复。建议在事务提交后执行文件删除，
     // 但由于无法获得事务提交的时机，这里直接执行。
-    await this.deleteImages(paths);
+    
+    // 同时尝试删除对应的缩略图
+    const thumbPaths = paths.map(p => {
+      const ext = path.extname(p);
+      const base = p.substring(0, p.length - ext.length);
+      return `${base}_thumb${ext}`;
+    });
+    const allPathsToDelete = [...paths, ...thumbPaths];
+
+    await this.deleteImages(allPathsToDelete);
+    
+    console.log(`[ImageService] 成功触发删除 ${ids.length} 条图片记录及其相关的物理文件:`, allPathsToDelete);
   }
 
   /**

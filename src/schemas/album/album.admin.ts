@@ -92,6 +92,18 @@ export const AlbumDeleteParamsSchema = z.object({
   id: AlbumIdSchema,
 });
 
+/** 删除相册内的照片参数验证 (支持从 Query 中接收) */
+export const AlbumPhotoDeleteQuerySchema = z.object({
+  /** 照片 ID 列表 */
+  photoIds: z
+    .union([z.string(), z.array(z.string()), z.number(), z.array(z.number())])
+    .transform((val) => (Array.isArray(val) ? val : [val]))
+    .transform((val) => val.map((v) => Number(v)))
+    .refine((val) => val.length > 0, { message: '至少选择一个照片' })
+    .refine((val) => val.every((v) => !isNaN(v) && v > 0), { message: '照片 ID 必须为正整数' }),
+});
+
+
 
 /** ---------- 类型推导 ---------- */
 /** 返回相册简要类型 */

@@ -1,5 +1,5 @@
 import Hashids from 'hashids';
-import { BadRequestError } from './errors';
+import { BadRequestError } from './error.util';
 
 
 /** 短ID编码解码器 */

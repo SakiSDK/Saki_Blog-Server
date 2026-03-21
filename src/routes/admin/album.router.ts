@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { AlbumController } from '@/controller/admin/Album.controller';
 import { zodValidate } from '@/middlewares/zodValidate';
-import { AlbumBulkDeleteParamsSchema, AlbumCreateBodySchema, AlbumDeleteParamsSchema, AlbumListQuerySchema, AlbumUpdateBodySchema } from '@/schemas/album/album.admin';
+import { AlbumBulkDeleteParamsSchema, AlbumCreateBodySchema, AlbumDeleteParamsSchema, AlbumListQuerySchema, AlbumPhotoDeleteQuerySchema, AlbumUpdateBodySchema } from '@/schemas/album/album.admin';
 import { upload } from '@/middlewares/upload.middleware';
 
 
@@ -87,6 +87,20 @@ router.get(
     params: AlbumDeleteParamsSchema
   }),
   AlbumController.getPhotosInAlbum
+);
+
+/** 
+ * 删除相册内的照片
+ * @route DELETE /admin/album/:id/photos
+ * @group admin - 相册管理
+ */
+router.delete(
+  '/:id/photos',
+  zodValidate({
+    params: AlbumDeleteParamsSchema,
+    query: AlbumPhotoDeleteQuerySchema,
+  }),
+  AlbumController.deletePhotosInAlbum
 );
 
 export default router;

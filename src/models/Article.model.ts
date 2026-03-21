@@ -3,7 +3,7 @@ import { sequelize } from './sequelize'
 import { ArticleCategory, ArticleTag } from './index'
 import { createShortIdCodec } from '@/utils/shortId.codec';
 import { config } from '@/config';
-import { BadRequestError } from '@/utils/errors';
+import { BadRequestError } from '@/utils/error.util';
 
 /** 文章模型属性类型定义 */
 export interface ArticleAttributes {
@@ -35,12 +35,14 @@ export interface ArticleAttributes {
   updatedAt: Date;
   /** 是否允许评论 */
   allowComment: boolean;
+  /** 点赞数 */
+  likeCount: number;
 }
 
 // 定义创建属性，让一些必要的属性变为可选，有数据库自动生成
 interface ArticleCreationAttributes extends Optional<
   ArticleAttributes,
-  'id' | 'shortId' | 'authorId' | 'createdAt' | 'updatedAt' | 'imagePaths' | 'description' | 'priority'
+  'id' | 'shortId' | 'authorId' | 'createdAt' | 'updatedAt' | 'imagePaths' | 'description' | 'priority' | 'likeCount'
 > { }
 
 
@@ -61,6 +63,8 @@ export class Article extends Model<ArticleAttributes, ArticleCreationAttributes>
   public updatedAt!: Date;
   /** 是否允许评论 */
   public allowComment!: boolean;
+  /** 点赞数 */
+  public likeCount!: number;
 
   // 删除文章并清理关联
   public static async deleteWithRelations(
@@ -210,6 +214,13 @@ Article.init({
     defaultValue: true,
     comment: "是否允许评论",
     field: "allow_comment",
+  },
+  likeCount: {
+    type: DataTypes.INTEGER.UNSIGNED,
+    allowNull: false,
+    defaultValue: 0,
+    comment: "点赞数",
+    field: "like_count",
   },
 }, {
   sequelize,

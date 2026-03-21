@@ -42,6 +42,8 @@ export class AuthController {
         password,
         /** 随机数 */
         nonce,
+        /** 是否保持登录 */
+        rememberMe,
       } = req.body as any;
 
       // 调用服务层处理登录逻辑
@@ -49,15 +51,22 @@ export class AuthController {
         email,
         password,
         nonce,
+        rememberMe,
       });
 
       // 设置HttpOnly Cookie 存储 refresh token（防止XSS攻击）
-      res.cookie('refreshToken', tokens.refreshToken, {
+      const cookieOptions: any = {
         httpOnly: true,
         secure: config.env === 'production' && req.secure, // 仅在 https 下启用 secure，防止本地 http 调试无法设置 cookie
         sameSite: 'strict',
-        maxAge: config.jwt.refreshExpiresIn * 1000 // refresh token 过期时间 (30天)
-      });
+      };
+
+      // 如果用户选择了“保持登录”，设置过期时间；否则为会话 Cookie（关闭浏览器失效）
+      if (rememberMe) {
+        cookieOptions.maxAge = config.jwt.refreshExpiresIn * 1000;
+      }
+
+      res.cookie('refreshToken', tokens.refreshToken, cookieOptions);
 
       // 返回accessToken和用户信息
       res.json({
@@ -80,6 +89,42 @@ export class AuthController {
           data: null,
         });
       }
+    }
+  }
+
+  /**
+   * 后台管理系统登出
+   */
+  public static async logout(req: Request, res: Response) {
+    try {
+      const refreshToken = req.cookies.refreshToken;
+      
+      // 调用服务层处理（可选，例如将 token 加入黑名单）
+      if (refreshToken) {
+        await AuthService.logout(refreshToken);
+      }
+
+      // 清除前端 Cookie 中的 refreshToken
+      res.clearCookie('refreshToken', {
+        httpOnly: true,
+        secure: config.env === 'production' && req.secure,
+        sameSite: 'strict',
+      });
+
+      res.status(200).json({
+        code: 200,
+        success: true,
+        message: '登出成功',
+        data: null,
+      });
+    } catch (error) {
+      console.log("登出失败：", error);
+      res.status(500).json({
+        code: 500,
+        success: false,
+        message: '登出失败',
+        data: null,
+      });
     }
   }
 }

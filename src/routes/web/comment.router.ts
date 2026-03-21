@@ -1,11 +1,24 @@
-// import { authenticateToken } from "../../middlewares/auth";
-// import { CommentController } from "../../controller/Comment.controller";
-// import { Router } from "express";
+import { authenticateToken } from "@/middlewares/auth.middleware";
+import { CommentController } from "../../controller/web/Comment.controller";
+import { Router } from "express";
+import { zodValidate } from "@/middlewares/zodValidate";
+import { CommentCreateBodySchema, CommentIdParamSchema, CommentListQuerySchema } from "@/schemas/comment/comment.web.schema";
 
-// const router: Router = Router()
+const router: Router = Router()
 
-// router.get('/count', CommentController.getAllCommentCount)
-// router.delete('/:id', authenticateToken, CommentController.deleteComment)
+/** 创建评论/回复 */
+router.post('/', authenticateToken, zodValidate({
+  body: CommentCreateBodySchema,
+}), CommentController.createComment)
 
+/** 获取某篇文章的评论列表 */
+router.get('/post/:postId', zodValidate({
+  query: CommentListQuerySchema,
+}), CommentController.getCommentsByPostId)
 
-// export default router
+/** 删除评论 */
+router.delete('/:id', authenticateToken, zodValidate({
+  params: CommentIdParamSchema,
+}), CommentController.deleteComment)
+
+export default router

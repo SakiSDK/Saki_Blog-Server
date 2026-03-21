@@ -6,6 +6,7 @@ const router: Router = Router();
 /** 获取唯一 nonce（用于防重放攻击） */
 router.post('/login', AuthController.login);
 router.get('/nonce', AuthController.getNonce);
+router.post('/logout', AuthController.logout);
 /** 后台管理系统登录 */
 
 export default router;

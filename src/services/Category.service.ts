@@ -1,4 +1,4 @@
-import { BadRequestError, NotFoundError } from "../utils/errors";
+import { BadRequestError, NotFoundError } from "../utils/error.util";
 import { Op, Transaction } from "sequelize";
 import { sequelize, Category, ArticleCategory } from "../models/index";
 import type { Pagination } from "../types/app";

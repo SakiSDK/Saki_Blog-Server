@@ -1,6 +1,6 @@
 import { Sequelize } from "sequelize";
 import { config } from "../config/index";
-import { logger } from "../utils/logger";
+import { logger } from "../utils/logger.util";
 
 // 创建Sequelize实例
 const sequelize = new Sequelize({

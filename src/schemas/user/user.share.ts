@@ -28,3 +28,8 @@ export const UserRoleSchema = z.enum(['user', 'admin'], '权限必须是user或a
 export const UserPasswordSchema = zStr.min(6, '密码长度不能小于6个字符').describe('用户密码')
 /** 用户邮箱 */
 export const UserEmailSchema = zEmail.describe('用户邮箱')
+
+
+/** ---------- 类型推导 ---------- */
+/** 性别 */
+export type Gender = z.infer<typeof UserGenderSchema>

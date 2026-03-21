@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken'
-import { config } from '../config/index'
-import { AppError } from '@utils/errors';
+import { config } from '../config'
+import { AppError } from '../utils/error.util';
 
 /** ---------- 类型定义 ---------- */
 /** JWT 负载接口 */

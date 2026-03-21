@@ -6,7 +6,7 @@ import CategoryRouter from "./category.router";
 import TagRouter from './tag.router';
 import ArticleRouter from './article.router'
 // import UserWebRouter from "./user.router";
-// import CommentWebRouter from "./comment.router";
+import CommentRouter from "./comment.router";
 
 const router: Router = Router();
 
@@ -17,6 +17,6 @@ router.use('/category', CategoryRouter)
 router.use('/tag', TagRouter)
 router.use('/article', ArticleRouter)
 // router.use('/user', UserWebRouter);
-// router.use('/comment', CommentWebRouter);
+router.use('/comment', CommentRouter);
 
 export default router;

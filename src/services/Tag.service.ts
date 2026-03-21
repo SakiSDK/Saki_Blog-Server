@@ -1,7 +1,7 @@
 import { ArticleTag } from '@/models/ArticleTag.model';
 import { sequelize } from '@/models/index';
 import { Tag } from '@/models/Tag.model'
-import { BadRequestError, NotFoundError } from '@/utils/errors'
+import { BadRequestError, NotFoundError } from '@/utils/error.util'
 import { Op, Transaction } from 'sequelize'
 import type { Pagination } from '@/types/app';
 import { HotTagResult } from '@/types/models/tag.type';

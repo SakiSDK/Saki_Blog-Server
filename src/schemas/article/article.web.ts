@@ -14,6 +14,7 @@ export const ArticleBriefSchema = z.object({
   shortId: ArticleShortIdSchema,
   title: ArticleTitleSchema,
   cover: ArticleCoverSchema.nullable(),
+  likeCount: z.number().int().min(0).describe("点赞数").optional(),
   tags: z.array(TagSchema).describe("文章标签"),
   categories: z.array(CategorySchema).describe("文章分类"),
   createdAt: zDate,

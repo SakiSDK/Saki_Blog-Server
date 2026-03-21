@@ -1,4 +1,4 @@
-import { InternalServerError } from './errors';
+import { InternalServerError } from './error.util';
 import sharp from 'sharp';
 
 /** ---------- 类型定义 ---------- */

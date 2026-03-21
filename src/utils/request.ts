@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { logger } from './logger';
+import { logger } from './logger.util';
 
 export class HttpService {
   private instance: AxiosInstance;

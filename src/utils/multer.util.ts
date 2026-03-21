@@ -1,6 +1,6 @@
 import multer, { FileFilterCallback, StorageEngine } from 'multer'
 import { Request, RequestHandler } from 'express';
-import { BadRequestError } from './errors';
+import { BadRequestError } from './error.util';
 import { config } from '../config';
 import path from 'path';
 import { randomUUID } from 'crypto';

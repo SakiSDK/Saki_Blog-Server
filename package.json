@@ -23,6 +23,7 @@
     "axios": "^1.12.2",
     "bcryptjs": "^3.0.2",
     "connect-redis": "^9.0.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
     "dotenv": "^17.2.2",
@@ -35,6 +36,7 @@
     "ioredis": "^5.8.2",
     "jsonwebtoken": "^9.0.2",
     "meilisearch": "^0.54.0",
+    "mint-filter": "^4.0.3",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
     "mysql2": "^3.14.5",
@@ -57,6 +59,7 @@
     "zod": "^4.1.13"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/express-session": "^1.18.2",

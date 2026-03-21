@@ -2,7 +2,7 @@ import { config } from '@/config';
 import { Index, MeiliSearch, RecordAny, Settings } from 'meilisearch';
 import { exec } from 'child_process'
 import { promisify } from 'util'
-import { InternalServerError } from '@/utils/errors';
+import { InternalServerError } from '@/utils/error.util';
 
 const execAsync = promisify(exec);
 

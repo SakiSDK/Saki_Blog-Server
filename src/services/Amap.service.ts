@@ -1,6 +1,6 @@
 import { HttpService } from "../utils/request";
 import { config } from "../config/index";
-import { BadRequestError, NotFoundError } from "../utils/errors";
+import { BadRequestError, NotFoundError } from "../utils/error.util";
 
 interface Params {
   key: string;

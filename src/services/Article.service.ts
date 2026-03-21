@@ -3,7 +3,7 @@ import { createShortIdCodec } from '@/utils/shortId.codec';
 import { Op, Transaction } from 'sequelize';
 import { sequelize } from '@/models';
 import { ArticleCategory, ArticleTag, Article, Category, Tag, User } from '@/models';
-import { BadRequestError, NotFoundError } from '@/utils/errors';
+import { BadRequestError, NotFoundError } from '@/utils/error.util';
 import { getMeiliIndex } from '@/libs/meilisearch';
 import { config } from '@/config/index';
 import { ArticleAttributes } from '@/models/Article.model';
@@ -534,6 +534,7 @@ export class ArticleService {
       status: plain.status,
       priority: plain.priority,
       allowComment: plain.allowComment,
+      likeCount: plain.likeCount,
       tags: plain.tags,
       categories: plain.categories,
       description: plain.description,
@@ -587,6 +588,7 @@ export class ArticleService {
         shortId: plain.shortId,
         title: plain.title,
         priority: Number(plain.priority) ?? null,
+        likeCount: plain.likeCount,
         createdAt: plain.createdAt,
         tags: plain.tags || [],
         categories: plain.categories || [],
@@ -863,4 +865,39 @@ export class ArticleService {
     };
   }
 
+  /** 
+   * 点赞文章
+   * @param shortId 文章短ID
+   * @param ip 用户IP地址，用于防刷
+   * @returns 最新点赞数
+   */
+  public static async likeArticle(shortId: string, ip: string): Promise<number> {
+    const article = await Article.findOne({
+      where: { shortId, status: 'published' }
+    });
+
+    if (!article) {
+      throw new NotFoundError('文章不存在或未发布');
+    }
+
+    // 简单的防刷：使用 Redis 记录 IP 点赞状态（1天内同一IP只能点赞一次）
+    const { redisClient } = await import('@/libs/redis');
+    const likeKey = `article:like:${shortId}:${ip}`;
+    const hasLiked = await redisClient.get(likeKey);
+
+    if (hasLiked) {
+      throw new BadRequestError('您已经点过赞了');
+    }
+
+    // 记录点赞状态，过期时间设置为24小时
+    await redisClient.set(likeKey, '1', 'EX', 24 * 60 * 60);
+
+    // 增加点赞数
+    await article.increment('likeCount', { by: 1 });
+    
+    // 重新获取最新数据
+    await article.reload();
+
+    return article.likeCount;
+  }
 }

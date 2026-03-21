@@ -2,7 +2,7 @@ import { AlbumBrief, AlbumUpdateBody, PhotoInfo, type AlbumListQuery, } from './
 import { Album, Image, Photo, sequelize } from '@/models';
 import { AlbumFormData } from '@/types/album';
 import { Pagination } from '@/types/app';
-import { BadRequestError, NotFoundError } from '@/utils/errors';
+import { BadRequestError, NotFoundError } from '@/utils/error.util';
 import { buildListQuery } from '@/utils/query.util';
 import { Op, Transaction } from 'sequelize';
 import { ImageService } from './Image.service';
@@ -600,6 +600,75 @@ export class AlbumService {
       }
       
       // 抛出错误，统一到 Controller 层处理错误
+      throw error;
+    }
+  }
+
+  /** 
+   * 通过图片ID删除指定相册的照片
+   * @param albumId - 相册ID，用于指定要删除照片的相册
+   * @param photoIds - 照片ID列表，用于指定要删除的照片
+   * @description 校验相册是否存在，若存在则删除指定照片记录，同时更新关联的照片计数
+   */
+  public static async deletePhotosByAlbumId(albumId: Album['id'], photoIds: Photo['id'][], transaction?: Transaction): Promise<void> {
+    const useTransaction = transaction || await sequelize.transaction();
+    try {
+      // 校验相册是否存在
+      const album = await Album.findOne({
+        where: { id: albumId, status: 'public' },
+        transaction: useTransaction,
+      });
+      if (!album) {
+        throw new NotFoundError(`相册不存在: ${albumId}`);
+      }
+
+      // 校验照片是否存在
+      const photos = await Photo.findAll({
+        where: { id: { [Op.in]: photoIds }, albumId },
+        attributes: ['id'],
+        transaction: useTransaction,
+      });
+      if (photos.length !== photoIds.length) {
+        throw new BadRequestError('有照片不存在')
+      }
+
+      // 删除关联的图片及记录 (Photo.deletePhotos 内部会删除 Photo 记录以及关联的 Image 和物理文件)
+      if (photoIds.length > 0) {
+        // 检查删除的照片中是否包含当前的相册封面
+        const isCoverDeleted = photoIds.includes(album.coverPhotoId as number);
+
+        await Photo.deletePhotos(photoIds, useTransaction);
+        
+        // 更新相册照片计数，确保不会减到 0 以下（防止 UNSIGNED 越界报错）
+        const newPhotoCount = Math.max(0, album.photoCount - photoIds.length);
+        await album.update({ photoCount: newPhotoCount }, { transaction: useTransaction });
+
+        // 如果封面被删除了，重新选一张作为封面，或者置为空
+        if (isCoverDeleted) {
+          const nextPhoto = await Photo.findOne({
+            where: { albumId },
+            order: [['priority', 'DESC'], ['createdAt', 'DESC']],
+            transaction: useTransaction,
+          });
+
+          await Album.update(
+            { coverPhotoId: nextPhoto ? nextPhoto.id : null },
+            { where: { id: albumId }, transaction: useTransaction }
+          );
+
+          if (nextPhoto) {
+            await nextPhoto.update({ coverStatus: 'main' }, { transaction: useTransaction });
+          }
+        }
+      }
+
+      if (!transaction) {
+        await useTransaction.commit();
+      }
+    } catch (error) {
+      if (!transaction) {
+        await useTransaction.rollback();
+      }
       throw error;
     }
   }

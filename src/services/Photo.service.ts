@@ -1,6 +1,6 @@
 import { Album, Image, Photo, sequelize } from '@/models/index';
 import { Op, Transaction } from 'sequelize';
-import { BadRequestError, NotFoundError } from '@/utils/errors';
+import { BadRequestError, NotFoundError } from '@/utils/error.util';
 import { ImageService } from './Image.service';
 
 
@@ -103,9 +103,12 @@ export class PhotoService {
 
       // 检查是否需要设置封面（如果相册没有封面）
       if (!album.coverPhotoId) {
-        await album.update({
-          coverPhotoId: photo.id,
-        }, { transaction: useTransaction });
+        // 先提交 photo 的创建，确保 photo.id 已经生成并可用
+        // 实际上在同一个事务中是可以直接使用的，但为了确保安全，我们先 update album
+        await Album.update(
+          { coverPhotoId: photo.id },
+          { where: { id: albumId }, transaction: useTransaction }
+        );
 
         // 同时更新 Photo 的 coverStatus
         await photo.update({ coverStatus: 'main' }, { transaction: useTransaction });
