@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { ArticleController } from '@/controller/web/Article.controller'
+import { SummaryController } from '@/controller/web/Summary.controller'
 import { zodValidate } from '@/middlewares/zodValidate'
 import { ArticleListQuerySchema, ArticleShortIdParamSchema } from '@/schemas/article/article.web'
 
@@ -36,5 +37,13 @@ router.get('/:shortId', zodValidate({
 router.post('/:shortId/like', zodValidate({
   params: ArticleShortIdParamSchema,
 }), ArticleController.likeArticle)
+
+/** 
+ * @description: 根据文章的短ID获取文章摘要（流式返回）
+ * @route GET /web/article/:shortId/summary
+ */
+router.get('/:shortId/summary', zodValidate({
+  params: ArticleShortIdParamSchema
+}), SummaryController.getArticleSummary)
 
 export default router

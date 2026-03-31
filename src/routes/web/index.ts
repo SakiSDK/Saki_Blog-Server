@@ -7,6 +7,8 @@ import TagRouter from './tag.router';
 import ArticleRouter from './article.router'
 // import UserWebRouter from "./user.router";
 import CommentRouter from "./comment.router";
+import AnnounceRouter from './announce.router'
+
 
 const router: Router = Router();
 
@@ -17,6 +19,7 @@ router.use('/category', CategoryRouter)
 router.use('/tag', TagRouter)
 router.use('/article', ArticleRouter)
 // router.use('/user', UserWebRouter);
+router.use('/announce', AnnounceRouter);
 router.use('/comment', CommentRouter);
 
 export default router;

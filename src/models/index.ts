@@ -12,6 +12,7 @@ import { ArticleTag } from './ArticleTag.model';
 import { ArticleCategory } from './ArticleCategory.model';
 import { Comment } from './Comment.model';
 import { Image } from './Image.model';
+import { Announce } from './Announce.model';
 
 
 import { initializeModelAssociations } from './associations';
@@ -32,6 +33,7 @@ export {
   Article,
   ArticleTag,
   ArticleCategory,
+  Announce,
 };
 
 

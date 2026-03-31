@@ -5,6 +5,7 @@ import CategoryRoute from "./category.router";
 import UploadRoute from "./upload.router";
 import ArticleRoute from "./article.router";
 import AlbumRoute from "./album.router";
+import AnnounceRoute from "./announce.router";
 
 const router: Router = Router();
 
@@ -42,5 +43,10 @@ router.use('/article', ArticleRoute)
  * 相册路由
  */
 router.use('/album', AlbumRoute)
+
+/** 
+ * 公告路由
+ */
+router.use('/announce', AnnounceRoute)
 
 export default router;

@@ -14,6 +14,7 @@ import emailConfig from './email.config'
 import uploadConfig from './upload.config'
 import sessionConfig from './session.config'
 import saltConfig from './salt.config'
+import DeepSeekConfig from './deepseek.config'
 
 
 export const config = {
@@ -51,4 +52,6 @@ export const config = {
     /** 邮箱登录验证配置 */
     email: emailConfig,
     env: process.env.NODE_ENV || 'development',
+    /** DeepSeek配置 */
+    deepseek: DeepSeekConfig,
 }
