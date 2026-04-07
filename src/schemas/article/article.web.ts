@@ -5,7 +5,7 @@ import {
   ArticleThumbCoverSchema,
   ArticleTitleSchema, CategorySchema, TagSchema
 } from './article.shared'
-import { zDate, zPageNum, zPageSize } from '../base.schema'
+import { zDate, zPageNum, zPageSize, zStr } from '../base.schema'
 
 
 /** ---------- 文章类型 ---------- */
@@ -40,8 +40,16 @@ export const ArticleRecentSchema = z.object({
 export const ArticleShortIdParamSchema = z.object({
   shortId: ArticleShortIdSchema,
 })
+
 /** 获取文章列表参数 */
 export const ArticleListQuerySchema = z.object({
+  page: zPageNum,
+  pageSize: zPageSize,
+})
+
+/** 文章搜索参数 */
+export const ArticleSearchQuerySchema = z.object({
+  keyword: zStr.describe("搜索关键词"),
   page: zPageNum,
   pageSize: zPageSize,
 })
@@ -59,4 +67,5 @@ export type ArticleRecentVo = z.infer<typeof ArticleRecentSchema>
 
 /** 首页文章列表请求参数类型 */
 export type ArticleListQueryVo = z.infer<typeof ArticleListQuerySchema>
-
+/** 文章搜索请求参数类型 */
+export type ArticleSearchQueryVo = z.infer<typeof ArticleSearchQuerySchema>

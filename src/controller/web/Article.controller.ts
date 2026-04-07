@@ -110,4 +110,35 @@ export class ArticleController {
       });
     }
   }
+
+  /** 
+   * 搜索文章（依靠MeiliSearch）
+   * @route GET /web/article/search
+   */
+  public static async searchArticles(req: Request, res: Response) {
+    try {
+      const query = req.query;
+      const { list, pagination } = await ArticleService.searchArticlesVo(query);
+      
+      res.status(200).json({
+        code: 200,
+        message: '文章搜索成功',
+        success: true,
+        data: {
+          list,
+          pagination: {
+            ...pagination,
+            hasPrev: pagination.page > 1,
+            hasNext: pagination.page < pagination.totalPages,
+          },
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        code: 500,
+        message: '服务器内部错误',
+        success: false,
+      });
+    }
+  }
 }

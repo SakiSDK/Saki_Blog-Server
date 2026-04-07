@@ -11,7 +11,7 @@ import { ImageService } from './Image.service';
 import { ArticleListQuery, ArticleSearchQuery } from '@/schemas/article/article.admin';
 import { buildListQuery } from '@/utils/query.util';
 import { Pagination } from '@/types/app';
-import { ArticleRecentVo, type ArticleBriefVo, type ArticleListQueryVo } from '@/schemas/article/article.web';
+import { ArticleRecentVo, ArticleSearchQueryVo, type ArticleBriefVo, type ArticleListQueryVo } from '@/schemas/article/article.web';
 
 
 /** ---------- 类型定义 ---------- */
@@ -853,6 +853,120 @@ export class ArticleService {
         createdAt: plain.createdAt,
       };
     }));
+
+    return {
+      list,
+      pagination: {
+        page: Number(page),
+        pageSize: Number(pageSize),
+        total: count,
+        totalPages: Math.ceil(count / Number(pageSize)),
+      }
+    };
+  }
+
+  /** 
+   * web端搜索文章(依靠MeiliSearch)
+   * @description 仅支持关键词搜索，分页
+   */
+  public static async searchArticlesVo(query: Partial<ArticleSearchQueryVo>) {
+    const { keyword, page = 1, pageSize = 10 } = query;
+
+    const offset = (Number(page) - 1) * Number(pageSize);
+    const limit = Number(pageSize);
+
+    // 关键词使用Meilisearch搜索
+    let matchedIds: number[] = [];
+    if (keyword?.trim()) {
+      try {
+        const index = await getMeiliIndex('articles');
+        const searchResult = await index.search(keyword, {
+          limit: 1000,
+          attributesToRetrieve: ['id'],
+          attributesToSearchOn: ['title', 'description', 'content'],
+        });
+        matchedIds = searchResult.hits.map((hit) => hit.id);
+
+        // 如果没搜到结果，直接返回空
+        if (matchedIds.length === 0) {
+          return {
+            list: [],
+            pagination: {
+              page: Number(page),
+              pageSize: Number(pageSize),
+              total: 0,
+              totalPages: 0,
+            }
+          };
+        }
+      } catch (error) {
+        console.error('[ArticleService] Meilisearch search failed:', error);
+        throw error;
+      }
+    }
+
+    // 构建查询条件：只查询已发布的文章
+    const where: any = {
+      status: 'published',
+    };
+
+    // 应用 Meilisearch 搜索结果的 ID 过滤
+    if (keyword?.trim() && matchedIds.length > 0) {
+      where.id = { [Op.in]: matchedIds };
+    }
+
+    // 执行数据库查询
+    const { count, rows } = await Article.findAndCountAll({
+      where,
+      include: [
+        {
+          model: User,
+          as: 'author',
+          attributes: ['nickname'],
+        },
+        {
+          model: Tag,
+          as: 'tags',
+          attributes: ['id', 'name'],
+          through: { attributes: [] },
+        },
+        {
+          model: Category,
+          as: 'categories',
+          attributes: ['id', 'name'],
+          through: { attributes: [] },
+        },
+      ],
+      attributes: ['id', 'shortId', 'title', 'coverPath', 'likeCount', 'createdAt'],
+      order: [['createdAt', 'DESC']],
+      offset,
+      limit,
+    });
+
+    // 格式化返回数据
+    const list = await Promise.all(rows.map(async (article) => {
+      const plain = article.get({ plain: true }) as ArticleDetail;
+      
+      // 获取封面缩略图
+      let thumbCover: string | null = null;
+      if (plain.coverPath) {
+        thumbCover = await ImageService.getThumbUrl(plain.coverPath);
+      }
+      const originUrl = plain.coverPath ? ImageService.getOriginUrl(plain.coverPath) : null;
+
+      return {
+        shortId: plain.shortId,
+        title: plain.title,
+        // cover: originUrl,
+        thumbCover: thumbCover ?? originUrl,
+        // likeCount: plain.likeCount || 0,
+        author: plain.author?.nickname ?? '未知作者',
+        tags: plain.tags || [],
+        categories: plain.categories || [],
+        createdAt: plain.createdAt,
+      };
+    }));
+
 
     return {
       list,

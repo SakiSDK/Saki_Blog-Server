@@ -98,10 +98,11 @@ export class AuthController {
   public static async logout(req: Request, res: Response) {
     try {
       const refreshToken = req.cookies.refreshToken;
+      const accessToken = req.headers.authorization?.replace('Bearer ', '');
       
-      // 调用服务层处理（可选，例如将 token 加入黑名单）
-      if (refreshToken) {
-        await AuthService.logout(refreshToken);
+      // 将 token 加入黑名单
+      if (refreshToken || accessToken) {
+        await AuthService.logout(accessToken || '', refreshToken || '');
       }
 
       // 清除前端 Cookie 中的 refreshToken

@@ -2,11 +2,20 @@ import { Router } from 'express'
 import { ArticleController } from '@/controller/web/Article.controller'
 import { SummaryController } from '@/controller/web/Summary.controller'
 import { zodValidate } from '@/middlewares/zodValidate'
-import { ArticleListQuerySchema, ArticleShortIdParamSchema } from '@/schemas/article/article.web'
+import { 
+  ArticleListQuerySchema, ArticleSearchQuerySchema, ArticleShortIdParamSchema 
+} from '@/schemas/article/article.web'
 
 /** 路由 */
 const router: Router = Router()
 
+/** 
+ * @description: 搜索文章（依靠MeilisSearch）
+ * @route GET /web/article/search
+ */
+router.get('/search', zodValidate({
+  query: ArticleSearchQuerySchema,
+}), ArticleController.searchArticles)
 
 /** 
  * @description: 获取文章列表

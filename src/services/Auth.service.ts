@@ -4,6 +4,9 @@ import { config } from '@/config';
 import crypto from 'crypto';
 import { SafeUser } from '@/models/User.model';
 import { redisClient } from '@/libs/redis';
+import jwt from 'jsonwebtoken';
+import { JwtPayload } from '@/libs/jwt';
+import { createCaptcha, verifyCaptcha, CreateCaptchaResult } from '@/libs/captcha';
 
 
 /** ---------- 类型定义 ---------- */
@@ -20,14 +23,19 @@ export interface LoginParamsVo {
   email: string;
   /** 密码 */
   password: string;
+  /** 验证码 key */
+  captchaKey: string;
   /** 验证码 */
-  captcha: string;
+  captchaCode: string;
+  /** 防重放攻击 nonce */
+  nonce: string;
   /** 是否保持登录 */
   rememberMe?: boolean;
 }
 
 
 export class AuthService { 
+  
   /** 
    * 生成唯一 nonce（用于防重放攻击）
    * @returns 生成的 nonce 字符串
@@ -38,6 +46,7 @@ export class AuthService {
     return nonce;
   }
 
+  /** ---------- 后台管理系统登录 ---------- */
   /** 
    * 后台管理系统登录
    * @param params 登录参数
@@ -68,58 +77,155 @@ export class AuthService {
   }
 
   /** 
+   * 将 token 加入黑名单
+   * @param token JWT token
+   */
+  private static async addTokenToBlacklist(token: string): Promise<void> {
+    try {
+      const decoded = jwt.decode(token) as { exp?: number } | null;
+      
+      if (decoded?.exp) {
+        const now = Math.floor(Date.now() / 1000);
+        const remainingTime = decoded.exp - now;
+        
+        if (remainingTime > 0) {
+          const tokenHash = crypto
+            .createHash('sha256')
+            .update(token)
+            .digest('hex');
+          
+          await redisClient.set(
+            `auth:blacklist:${tokenHash}`,
+            '1',
+            'EX',
+            remainingTime
+          );
+        }
+      }
+    } catch (error) {
+      console.warn('将 token 加入黑名单失败:', error);
+    }
+  }
+
+  /** 
    * 后台管理系统登出
+   * @param accessToken 用户的 accessToken
    * @param refreshToken 用户的 refreshToken
    */
-  static async logout(refreshToken: string): Promise<void> {
-    if (!refreshToken) {
-      return;
+  static async logout(accessToken: string, refreshToken: string): Promise<void> {
+    // 将两个 token 都加入黑名单
+    if (accessToken) {
+      await this.addTokenToBlacklist(accessToken);
     }
-
-    try {
-      // 验证 token 的合法性（提取 payload）
-      // 注意：这里即便 token 过期了，如果是恶意用户拿着过期的去请求，也会抛错
-      // 但对于正常的登出流程，只要能解析出内容，我们就可以将其加入黑名单或者直接在前端清除
-      
-      // 如果你想在 Redis 中做强校验（黑名单机制）：
-      // 1. 解析 token 获取 jti (JWT ID) 或者 exp
-      // 2. 将 token 存入 Redis，设置过期时间等于 token 的剩余有效期
-      // await redisClient.set(`auth:blacklist:${refreshToken}`, '1', 'EX', remainingTime);
-      
-      // 目前最简单的做法：因为后端没有维护 token 状态，真正的注销动作主要靠前端清除 Cookie 和 localStorage。
-      // 所以服务层这里可以直接放行，或者你可以在这里实现将 Token 加入 Redis 黑名单的逻辑。
-      console.log('用户请求登出，refreshToken:', refreshToken);
-    } catch (error) {
-      // 忽略无效 token 的错误
-      console.warn('登出时解析 token 失败:', error);
+    if (refreshToken) {
+      await this.addTokenToBlacklist(refreshToken);
     }
   }
 
   /** ---------- 前台Web端第三方登录 ---------- */
+  /** 
+   * web端验证码
+   * @description 通过redis存储验证码，并返回验证码图片base64
+   */
+  static async generateCaptcha(): Promise<CreateCaptchaResult> {
+    return createCaptcha();
+  }
 
   /**
    * Web端普通登录
-   * @params params 登录参数 {email, password, captcha, rememberMe}
+   * @params params 登录参数 {email, password, captchaKey, captchaCode, nonce, rememberMe}
    */
-  static async webLogin(params: LoginParamsVo) {
-    const { email, password, captcha, rememberMe } = params;
-    // 校验参数
-    if (!email || !password || !captcha) {
+  static async loginVo(params: LoginParamsVo): Promise<{
+    user: SafeUser;
+    tokens: {
+      accessToken: string;
+      refreshToken: string;
+    };
+  }> {
+    const { email, password, captchaKey, captchaCode, nonce, rememberMe } = params;
+    
+    // 1. 校验参数
+    if (!email || !password || !captchaKey || !captchaCode || !nonce) {
       throw new BadRequestError('缺少必要参数');
     }
     
+    // 2. 验证 nonce（防重放攻击，优先验证快速失败）
+    const nonceKey = `auth:nonce:${nonce}`;
+    if (!(await redisClient.get(nonceKey))) {
+      throw new BadRequestError('无效的请求');
+    }
+    await redisClient.del(nonceKey);  // 一次性使用
+    
+    // 3. 验证验证码
+    const isValidCaptcha = await verifyCaptcha({ key: captchaKey, code: captchaCode });
+    if (!isValidCaptcha) {
+      throw new BadRequestError('验证码错误或已过期');
+    }
+    
+    // 4. 验证用户凭据
+    const user = await User.findOne({ where: { email, status: 'active' } });
+    if (!user) {
+      throw new UnauthorizedError('用户不存在或未激活');
+    }
+    if (!user.password) {
+      throw new UnauthorizedError('该账号为第三方登录，请直接通过对应平台登录');
+    }
+    
+    const isValid = await user.validatePassword(password);
+    if (!isValid) {
+      throw new UnauthorizedError('用户名或者密码错误');
+    }
+    
+    // 5. 生成令牌（根据 rememberMe 调整过期时间）
+    const jwtPayload: JwtPayload = {
+      id: user.id,
+      nickname: user.username,
+      email: user.email,
+      role: user.role as string,
+    };
+    
+    // rememberMe 为 true 时延长 token 有效期
+    // 默认：access 7天，refresh 30天
+    // 记住我：access 30天，refresh 90天
+    const accessExpiresIn = rememberMe 
+      ? 30 * 24 * 60 * 60  // 30天
+      : config.jwt.accessExpiresIn;
+    const refreshExpiresIn = rememberMe 
+      ? 90 * 24 * 60 * 60  // 90天
+      : config.jwt.refreshExpiresIn;
+    
+    const accessToken = jwt.sign(
+      jwtPayload,
+      config.jwt.accessSecret,
+      { expiresIn: accessExpiresIn, issuer: config.jwt.issuer }
+    );
+    const refreshToken = jwt.sign(
+      { ...jwtPayload, tokenType: 'refresh' },
+      config.jwt.refreshSecret,
+      { expiresIn: refreshExpiresIn, issuer: config.jwt.issuer }
+    );
+    
+    return {
+      user: {
+        id: user.id,
+        shortId: user.shortId,
+        nickname: user.nickname,
+        email: user.email,
+        gender: user.gender,
+        avatar: user.avatar,
+        bio: user.bio,
+        createdAt: user.createdAt,
+      },
+      tokens: { accessToken, refreshToken },
+    };
   }
 
-  /** QQ登录 */
-  static async qqLogin(params: {
-    qqId: string,
-    nickname: string,
-    email: string,
-    avatar: string,
-  }) {
-    const { qqId, nickname, email, avatar } = params;
-
-
-    
+  /** 
+   * web端登出逻辑
+   * @param accessToken 用户的 accessToken
+   * @param refreshToken 用户的 refreshToken
+   */
+  static async logoutVo(accessToken: string, refreshToken: string): Promise<void> {
+    return this.logout(accessToken, refreshToken);
   }
 }
