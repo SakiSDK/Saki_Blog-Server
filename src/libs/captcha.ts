@@ -6,9 +6,9 @@ import crypto from 'crypto';
 /** ---------- 类型定义 ---------- */
 export interface CreateCaptchaResult {
   /** 验证码唯一标识 */
-  key: string;
+  captchaKey: string;
   /** SVG 图片字符串 */
-  svg: string;
+  captchaImage: string;
 }
 
 export interface VerifyCaptchaParams {
@@ -31,8 +31,6 @@ const CAPTCHA_CONFIG = {
   background: '#f5f7fa',
   /** 是否使用彩色字符 */
   color: true,
-  /** 数学运算符 */
-  mathOperator: '+',
   /** 验证码有效期（秒） */
   expireSeconds: 5 * 60,  // 5分钟
   /** Redis key 前缀 */
@@ -60,6 +58,55 @@ const filterConfusableChars = (text: string): string => {
   );
 };
 
+/**
+ * 生成自定义数学运算表达式
+ * 支持加、减、乘、除，满足以下约束：
+ * 1. 减法：被减数 >= 减数，结果不为负数
+ * 2. 乘法：乘数较小，通常在 1-9 之间
+ * 3. 除法：被除数必须能被除数整除
+ */
+const generateCustomMathExpr = (): { text: string; data: string } => {
+  const operators = ['+', '-', '*', '/'];
+  const operator = operators[Math.floor(Math.random() * operators.length)];
+
+  let num1 = 0;
+  let num2 = 0;
+  let result = 0;
+  let expression = '';
+
+  switch (operator) {
+    case '+':
+      num1 = Math.floor(Math.random() * 20) + 1; // 1-20
+      num2 = Math.floor(Math.random() * 20) + 1; // 1-20
+      result = num1 + num2;
+      expression = `${num1}+${num2}=?`;
+      break;
+    case '-':
+      num1 = Math.floor(Math.random() * 20) + 1; // 1-20
+      num2 = Math.floor(Math.random() * num1) + 1; // 保证 num1 >= num2
+      result = num1 - num2;
+      expression = `${num1}-${num2}=?`;
+      break;
+    case '*':
+      num1 = Math.floor(Math.random() * 9) + 1; // 1-9
+      num2 = Math.floor(Math.random() * 9) + 1; // 1-9
+      result = num1 * num2;
+      expression = `${num1}*${num2}=?`;
+      break;
+    case '/':
+      num2 = Math.floor(Math.random() * 9) + 1; // 1-9 (除数不能为0)
+      result = Math.floor(Math.random() * 9) + 1; // 商 1-9
+      num1 = num2 * result; // 被除数，保证能整除
+      expression = `${num1}/${num2}=?`;
+      break;
+  }
+
+  return {
+    text: result.toString(),
+    data: expression,
+  };
+};
+
 
 /** ---------- 公开方法 ---------- */
 /**
@@ -76,23 +123,30 @@ export const createCaptcha = async (): Promise<CreateCaptchaResult> => {
         noise: CAPTCHA_CONFIG.noise,
         color: CAPTCHA_CONFIG.color,
         size: CAPTCHA_CONFIG.length,
-        width: 120,
-        height: 40,
+        width: 140,
+        height: 50,
+        fontSize: 50,
         background: CAPTCHA_CONFIG.background,
         ignoreChars: '0O1l6b8B9q',
       });
     } else {
-      // 数学运算验证码
-      captcha = svgCaptcha.createMathExpr({
+      // svgCaptcha 本身导出的默认函数可以接收自定义文本 (text, options) 返回 SVG 字符串
+      const mathExpr = generateCustomMathExpr();
+      
+      const svgString = (svgCaptcha as any)(mathExpr.data, {
         noise: CAPTCHA_CONFIG.noise,
         color: CAPTCHA_CONFIG.color,
         background: CAPTCHA_CONFIG.background,
-        width: 120,
-        height: 40,
-        mathMin: 1,
-        mathMax: 20,
-        mathOperator: CAPTCHA_CONFIG.mathOperator,
+        width: 140,
+        height: 50,
+        fontSize: 40,
       });
+
+      // 手动构造符合 CaptchaObj 接口的返回结果
+      captcha = {
+        text: mathExpr.text, // 正确的数学答案
+        data: svgString,     // 生成的数学题图片
+      };
     }
 
     // 处理验证码结果
@@ -101,12 +155,12 @@ export const createCaptcha = async (): Promise<CreateCaptchaResult> => {
       : filterConfusableChars(captcha.text).toLowerCase();
 
     // 生成 key 并存储到 Redis
-    const key = generateCaptchaKey();
-    const shortKey = key.replace(CAPTCHA_CONFIG.keyPrefix, '');  // 返回给前端的是短 key
+    const fullKey = generateCaptchaKey();
+    const shortKey = fullKey.replace(CAPTCHA_CONFIG.keyPrefix, '');  // 返回给前端的是短 key
 
-    await redisClient.set(key, processedCode, 'EX', CAPTCHA_CONFIG.expireSeconds);
+    await redisClient.set(fullKey, processedCode, 'EX', CAPTCHA_CONFIG.expireSeconds);
 
-    return { key: shortKey, svg: captcha.data };
+    return { captchaKey: shortKey, captchaImage: captcha.data };
   } catch (error) {
     console.error('验证码生成失败:', error);
     throw new Error('验证码生成失败，请重试');
@@ -116,14 +170,22 @@ export const createCaptcha = async (): Promise<CreateCaptchaResult> => {
 /**
  * 验证图形验证码
  * @param params 验证参数 { key, code }
+ * @param preserve 是否在验证成功后保留验证码（发送邮件等二次验证场景使用）
  * @returns 验证是否通过
  */
-export const verifyCaptcha = async ({ key, code }: VerifyCaptchaParams): Promise<boolean> => {
+export const verifyCaptcha = async ({ key, code }: VerifyCaptchaParams, preserve = false): Promise<boolean> => {
   if (!key || !code) return false;
 
   try {
     const fullKey = `${CAPTCHA_CONFIG.keyPrefix}${key}`;
     const storedCode = await redisClient.get(fullKey);
+
+    console.log('\n--- 验证码校验 Debug ---');
+    console.log('前端传来的 key:', key);
+    console.log('前端传来的 code:', code);
+    console.log('Redis中存的 fullKey:', fullKey);
+    console.log('Redis中存的 storedCode:', storedCode);
+    console.log('--------------------------\n');
 
     if (!storedCode) {
       console.log('验证码不存在或已过期:', key);
@@ -133,8 +195,13 @@ export const verifyCaptcha = async ({ key, code }: VerifyCaptchaParams): Promise
     const userInput = code.trim().toLowerCase();
     const isValid = storedCode === userInput;
 
-    // 验证后删除验证码（一次性使用）
-    await redisClient.del(fullKey);
+    // 如果验证通过，并且未要求保留，才删除验证码
+    if (isValid && !preserve) {
+      await redisClient.del(fullKey);
+    } else if (!isValid) {
+      // 验证失败的话，立即删除验证码，防止爆破尝试
+      await redisClient.del(fullKey);
+    }
 
     return isValid;
   } catch (error) {

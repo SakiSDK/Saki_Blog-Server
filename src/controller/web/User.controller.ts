@@ -1,6 +1,3 @@
-import { uploadToOSS } from "@/utils/upload";
-
-
 /**
  * web端用户控制器
  */

@@ -19,12 +19,12 @@ export type EmailConfig = {
 export const config: EmailConfig = {
   host: process.env.EMAIL_HOST || 'smtp.qq.com',
   port: parseInt(process.env.EMAIL_PORT || '465', 10),
-  secure: process.env.EMAIL_SECURE === 'true',
+  secure: process.env.EMAIL_SECURE !== 'false', // 默认 true (特别是465端口)
   auth: {
     user: process.env.EMAIL_USER || '',
     pass: process.env.EMAIL_PASS || '',
   },
-  from: process.env.EMAIL_FROM || '',
+  from: process.env.EMAIL_FROM || process.env.EMAIL_USER || '',
 }
 
 export default Object.freeze(config);

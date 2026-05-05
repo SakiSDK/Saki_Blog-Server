@@ -141,4 +141,44 @@ export class ArticleController {
       });
     }
   }
+
+  public static async getArticleTimeline(req: Request, res: Response) {
+    try {
+      const articles = await ArticleService.getArticleTimeline();
+      res.status(200).json({
+        code: 200,
+        message: '时间线文章列表获取成功',
+        success: true,
+        data: articles,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        code: 500,
+        message: '服务器内部错误',
+        success: false,
+      });
+    }
+  }
+
+  /** 
+   * 获取随机文章
+   * @route GET /web/article/random
+   */
+  public static async getRandomArticle(req: Request, res: Response) {
+    try {
+      const article = await ArticleService.getRandomArticle();
+      res.status(200).json({
+        code: 200,
+        message: '随机文章获取成功',
+        success: true,
+        data: article,
+      });
+    } catch (error: any) {
+      res.status(error.status || 500).json({
+        code: error.status || 500,
+        message: error.message || '服务器内部错误',
+        success: false,
+      });
+    }
+  }
 }

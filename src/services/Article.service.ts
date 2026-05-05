@@ -1014,4 +1014,108 @@ export class ArticleService {
 
     return article.likeCount;
   }
+
+  /** 
+   * 根据时间线获取文章列表
+   * @description 根据年份、月份分类，返回类似: [{ year: 2024, months: [{ month: 4, articles: [...] }] }] 的嵌套结构
+   * @returns 分组后的时间线文章列表
+   */
+  public static async getArticleTimeline(): Promise<any[]> {
+    // 1. 查询所有已发布的文章，按创建时间降序排列
+    const articles = await Article.findAll({
+      where: { status: 'published' },
+      attributes: ['shortId', 'title', 'createdAt'],
+      order: [['createdAt', 'DESC']],
+    });
+    
+    const timelineMap = new Map<number, Map<number, any[]>>();
+
+    for (const article of articles) {
+      const date = new Date(article.createdAt);
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1; // 1-12月
+      const day = date.getDate(); // 1-31日
+
+      const articleItem = {
+        shortId: article.shortId,
+        title: article.title,
+        createdAt: article.createdAt,
+        day: day, // 增加“几号”的属性
+      };
+
+      // 处理年份
+      if (!timelineMap.has(year)) {
+        timelineMap.set(year, new Map<number, any[]>());
+      }
+      
+      const monthMap = timelineMap.get(year)!;
+      
+      // 处理月份
+      if (!monthMap.has(month)) {
+        monthMap.set(month, []);
+      }
+      
+      monthMap.get(month)!.push(articleItem);
+    }
+
+    // 3. 将 Map 转换为数组结构，并保证按年份降序、月份降序
+    const timeline: any[] = [];
+    
+    // 遍历年份（Map的遍历顺序是插入顺序，我们需要手动排序或者用数组sort）
+    const sortedYears = Array.from(timelineMap.keys()).sort((a, b) => b - a);
+    
+    for (const year of sortedYears) {
+      const monthMap = timelineMap.get(year)!;
+      const sortedMonths = Array.from(monthMap.keys()).sort((a, b) => b - a);
+      
+      const monthsArray = [];
+      for (const month of sortedMonths) {
+        monthsArray.push({
+          month,
+          articles: monthMap.get(month),
+        });
+      }
+      
+      timeline.push({
+        year,
+        months: monthsArray,
+      });
+    }
+
+    return timeline;
+  }
+
+  /**
+   * 获取随机文章
+   * @returns 随机文章信息
+   */
+  public static async getRandomArticle(): Promise<any> {
+    const article = await Article.findOne({
+      where: { status: 'published' },
+      order: sequelize.random(),
+      attributes: ['shortId', 'title', 'coverPath', 'description', 'createdAt'],
+    });
+
+    if (!article) {
+      throw new NotFoundError('没有找到发布的文章');
+    }
+
+    const plain = article.get({ plain: true });
+    
+    let thumbCover: string | null = null;
+    let cover: string | null = null;
+    if (plain.coverPath) {
+      thumbCover = await ImageService.getThumbUrl(plain.coverPath);
+      cover = ImageService.getOriginUrl(plain.coverPath);
+    }
+
+    return {
+      shortId: plain.shortId,
+      title: plain.title,
+      description: plain.description,
+      cover,
+      thumbCover,
+      createdAt: plain.createdAt,
+    };
+  }
 }

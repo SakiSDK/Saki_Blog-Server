@@ -20,7 +20,6 @@ export class AuthController {
         }
       });
     } catch (error) {
-      console.log("获取nonce失败：", error)
       if (error instanceof Error) {
         res.status(500).json({
           code: 500,

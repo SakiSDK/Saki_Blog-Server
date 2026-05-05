@@ -8,6 +8,7 @@ import { User } from './User.model'
 export interface CommentReply extends Omit<CommentAttributes, 'content' | 'postId' | 'userId' | 'userIp' | 'updatedAt' | 'status'> {
   content: string; // 格式化后的内容
   user?: Pick<User, 'nickname' | 'avatar' | 'shortId'>;
+  replyToUser?: Pick<User, 'nickname' | 'avatar' | 'shortId'>; // 增加被回复人信息
 }
 
 // 定义「主评论」的类型（根评论，replies平级包含所有回复）
@@ -88,7 +89,7 @@ export class Comment extends Model<CommentAttributes, CommentCreationAttributes>
   }
 
   public static async getMainCommentsWithFlatReplies(
-    postId: number,
+    articleId: number,
     options: {
       page?: number,
       pageSize?: number,
@@ -102,7 +103,7 @@ export class Comment extends Model<CommentAttributes, CommentCreationAttributes>
     const offset = (page - 1) * pageSize;
 
     // 查询该文章所有有效评论（主评论+所有层级回复）
-    const whereCondition: any = { postId: postId };
+    const whereCondition: any = { postId: articleId };
     if (!includePending) whereCondition.status = 'approved';
     
     const allComments = await Comment.findAll({
@@ -117,8 +118,8 @@ export class Comment extends Model<CommentAttributes, CommentCreationAttributes>
         // 新增 Article 关联，获取 shortId
         {
           model: Article,
-          as: 'post',
-          attributes: [['shortId', 'postShortId']], // 只返回必要字段
+          as: 'article',
+          attributes: [['short_id', 'postShortId']], // 只返回必要字段
           required: false,
         }
       ],
@@ -132,35 +133,42 @@ export class Comment extends Model<CommentAttributes, CommentCreationAttributes>
     const allRepliesRaw = allComments.filter(comment => comment.parentId); // 所有回复：parentId不为null
 
     // 格式化数据：主评论+评级回复（replies数组平级）
-    const formattedMainComments: MainComment[] = mainCommentsRaw.map(mainComment => {
-      // 格式化主评论自身内容
-      const rawComment = mainComment.toJSON();
-      const mainCommentData: MainComment = {
-        ...rawComment,
-        replies: [],
-      }
-      mainCommentData.content = mainComment.formatContent();
-      mainCommentData.replies = []; // 初始化平级回复数组
+      const formattedMainComments: MainComment[] = mainCommentsRaw.map(mainComment => {
+        // 格式化主评论自身内容
+        const rawComment = mainComment.toJSON();
+        const mainCommentData: MainComment = {
+          ...rawComment,
+          replies: [],
+        }
+        mainCommentData.content = mainComment.formatContent();
+        mainCommentData.replies = []; // 初始化平级回复数组
 
-      // 收集当前主评论下的所有回复（直接+间接）
-      // 逻辑：回复的parent_id要么是主评论ID，要么是其他回复的ID（且这些回复的最终父级是当前主评论）
-      const getRepliesForMainComment = (mainCommentId: number): CommentReply[] => {
-        // 递归收集所有以当前主评论为根的回复（但最终平级存放）
-        const findReplies = (parentIds: number[]): CommentReply[] => {
-          const replies = allRepliesRaw
-            .filter(reply => parentIds.includes(reply.parentId!)) // 父ID在目标列表中
-            .map(reply => {
-              const replyData = reply.toJSON() as CommentReply;
-              replyData.content = reply.formatContent();
-              return replyData;
-            });
+        // 收集当前主评论下的所有回复（直接+间接）
+        // 逻辑：回复的parent_id要么是主评论ID，要么是其他回复的ID（且这些回复的最终父级是当前主评论）
+        const getRepliesForMainComment = (mainCommentId: number): CommentReply[] => {
+          // 递归收集所有以当前主评论为根的回复（但最终平级存放）
+          const findReplies = (parentIds: number[]): CommentReply[] => {
+            const replies = allRepliesRaw
+              .filter(reply => parentIds.includes(reply.parentId!)) // 父ID在目标列表中
+              .map(reply => {
+                const replyData = reply.toJSON() as any;
+                replyData.content = reply.formatContent();
+                
+                // 附加被回复人信息 (replyToUser)
+                const parentComment = allComments.find(c => c.id === reply.parentId);
+                if (parentComment && parentComment.user) {
+                  replyData.replyToUser = parentComment.user;
+                }
 
-          // 查找这些回复的子回复（父ID是当前回复的ID）
-          const childParentIds = replies.map(reply => reply.id);
-          const childReplies = childParentIds.length > 0 ? findReplies(childParentIds) : [];
-          
-          return [...replies, ...childReplies];
-        };
+                return replyData as CommentReply;
+              });
+
+            // 查找这些回复的子回复（父ID是当前回复的ID）
+            const childParentIds = replies.map(reply => reply.id);
+            const childReplies = childParentIds.length > 0 ? findReplies(childParentIds) : [];
+            
+            return [...replies, ...childReplies];
+          };
 
         // 1. 收集所有回复 2. 统一按 createdAt 排序（核心步骤）
         const allReplies = findReplies([mainCommentId]);
@@ -179,7 +187,7 @@ export class Comment extends Model<CommentAttributes, CommentCreationAttributes>
     });
 
     // 主评论分页（replies数组全量返回，不分页）
-    const total = allComments.length;
+    const total = mainCommentsRaw.length;
     const paginatedComments = formattedMainComments.slice(offset, offset + pageSize);
 
     return { comments: paginatedComments, total };

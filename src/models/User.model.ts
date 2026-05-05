@@ -268,6 +268,78 @@ export class User extends Model<UserAttributes, UserCreationAttributes> implemen
     return this.generateTokens(user);
   }
 
+  /** Github登录专用 */
+  public static async findOrCreateUserByGithubId(params: {
+    githubId: string,
+    githubNickname: string,
+    email: string,
+    avatar?: string,
+  }): Promise<{
+    user: SafeUser;
+    tokens: {
+      accessToken: string;
+      refreshToken: string
+    }
+  }> {
+    const { githubId, githubNickname, email, avatar } = params;
+    let user = await User.findOne({ where: { githubId } });
+
+    // 用户名，昵称
+    const username = `github_${githubId}`;
+    const nickname = githubNickname || `用户_${generateRandomSuffix()}`;
+
+    // 按email查找已有账号，自动绑定Github
+    if (!user && email) {
+      user = await User.findOne({
+        where: { email }
+      });
+      if (user) {
+        await user.update({
+          githubId: githubId,
+        });
+        if (!user.avatar && avatar) await user.update({ avatar: avatar });
+        if (!user.username || user.nickname === '用户') {
+          await user.update({ nickname: nickname });
+        }
+        return this.generateTokens(user); // 直接生成令牌返回
+      }
+    }
+
+    // 无对应用户，创建新用户
+    if (!user) {
+      user = await User.create({
+        githubId: githubId,
+        email: email || `github_${githubId}@your-domain.com`, // 邮箱可选
+        username: username,
+        nickname: nickname,
+        gender: 'other', // 默认性别
+        status: 'active', // 自动激活
+        role: 'user',
+        avatar: avatar || undefined
+      });
+    }
+
+    // 生成对应的shortId
+    if (!user.shortId) {
+      const { encode } = createShortIdCodec(config.salt.user);
+      const shortId = encode(user.id);
+      await user.update({ shortId: shortId });
+    }
+
+    return this.generateTokens(user);
+  }
+
+  // 为新注册的用户生成令牌并返回信息
+  static async generateTokensForNewUser(user: User): Promise<{
+    user: SafeUser;
+    tokens: {
+      accessToken: string;
+      refreshToken: string;
+    };
+  }> {
+    return this.generateTokens(user);
+  }
+
   // 工具方法：生成JWT令牌（复用逻辑）
   private static async generateTokens(user: User): Promise<{ user: SafeUser, tokens: { accessToken: string, refreshToken: string } }> {
     const jwtPayload: JwtPayload = {

@@ -2,6 +2,10 @@ import { BadRequestError, ForbiddenError, NotFoundError } from "../utils/error.u
 import { Comment, Article, User } from "../models/index";
 import { AmapService } from "./Amap.service";
 import { SensitiveWordFilter } from "../utils/sensitive-word.util";
+import { config } from "@/config";
+import { resolveId } from "@/utils/id.util";
+import { ArticleService } from "./Article.service";
+import axios from "axios";
 
 
 
@@ -16,7 +20,7 @@ export class CommentService {
      * @param {number} userId 当前登录用户ID
      */
     static async createComment(params: any, userId: number) {
-        let { content, post_id, parent_id, user_device, user_ip, user_browser } = params;
+        let { content, postId, parentId, userDevice, userBrowser, userIp } = params;
 
         // 敏感词过滤：拒绝包含敏感词的评论
         if (SensitiveWordFilter.hasSensitiveWords(content)) {
@@ -30,36 +34,36 @@ export class CommentService {
         }
 
         // 验证文章是否存在
-        const post = await Article.findByPk(post_id);
+        const post = await Article.findByPk(postId);
         if (!post) throw new BadRequestError('文章不存在');
 
         // 验证父评论是否存在以及否是当前文章的
-        if (parent_id) {
-            const parentComment = await Comment.findByPk(parent_id);
+        if (parentId) {
+            const parentComment = await Comment.findByPk(parentId);
             if (!parentComment) throw new BadRequestError('父评论不存在');
-            if (parentComment.postId !== post_id) throw new BadRequestError('父评论不属于该文章');
+            if (parentComment.postId !== postId) throw new BadRequestError('父评论不属于该文章');
         }
 
         // 根据用户ip获取用户所在地
         let amapRes: any = { province: '未知' };
-        if (user_ip) {
+        if (userIp) {
             try {
-              amapRes = await AmapService.getCityByIp(user_ip);
+                amapRes = await AmapService.getCityByIp(userIp);
             } catch (error) {
-              console.warn('获取IP定位失败', error);
+                console.warn('获取IP定位失败', error);
             }
         }
 
         // 创建评论（钩子模型自动处理作者标记、XSS过滤）
         const comment = await Comment.create({
             content,
-            postId: post_id,
-            parentId: parent_id,
+            postId,
+            parentId,
             userId: userId,
-            userBrowser: user_browser,
-            userDevice: user_device,
+            userBrowser,
+            userDevice,
             userRegion: amapRes.province,
-            userIp: user_ip,
+            userIp,
         })
 
         // 关联用户信息发送
@@ -68,13 +72,31 @@ export class CommentService {
                 model: User,
                 as: 'user',
                 attributes: ['avatar', 'shortId', 'nickname']
-            }]
+            }],
+            attributes: { exclude: ['postId', 'userId', 'status', 'userIp', 'updatedAt'] }
         })
 
-        return {
-            comment: result?.toJSON(),
-            formattedContent: comment.formatContent(),
+        const commentData = result?.toJSON() as any;
+        if (commentData) {
+            commentData.content = result!.formatContent();
+            if (!commentData.parentId) {
+                commentData.replies = [];
+            } else {
+                // 如果是回复，需要加上被回复人的信息 replyToUser
+                const parentComment = await Comment.findByPk(commentData.parentId, {
+                    include: [{
+                        model: User,
+                        as: 'user',
+                        attributes: ['avatar', 'shortId', 'nickname']
+                    }]
+                });
+                if (parentComment && parentComment.user) {
+                    commentData.replyToUser = parentComment.user;
+                }
+            }
         }
+
+        return commentData;
     }
 
     /**
@@ -83,14 +105,13 @@ export class CommentService {
      * @param {number} page 页码
      * @param {number} pageSize 每页条数
      */
-    static async getNestedCommentsByPostId(postId: number, page: number, pageSize: number) {
+    static async getNestedCommentsByArticleId(articleId: number, page: number, pageSize: number) {
         // 验证文章是否存在
-        const post = await Article.findByPk(postId);
+        const post = await Article.findByPk(articleId);
         if (!post) throw new BadRequestError('文章不存在');
         
         // 调用模型静态方法获取嵌套评论
-        const { comments, total } = await Comment.getMainCommentsWithFlatReplies(postId, { page, pageSize });
-        console.log('all Comments: ', comments)
+        const { comments, total } = await Comment.getMainCommentsWithFlatReplies(articleId, { page, pageSize });
         
         return {
             data: comments,
@@ -137,5 +158,94 @@ export class CommentService {
         await Comment.destroy({ where: { id } });
 
         return { message: '评论删除成功' }
+    }
+
+    /**
+     * 根据文章短ID生成5条AI评论供选择
+     * @param shortId 文章短ID
+     * @returns 生成的评论数组
+     */
+    static async generateAiComments(shortId: string): Promise<string[]> {
+        // 1. 验证 shortId
+        if (!shortId || shortId.trim().length === 0) {
+            throw new BadRequestError('文章短ID不能为空');
+        }
+
+        // 2. 获取文章详情
+        const articleId = resolveId(shortId, config.salt.article);
+        const article = await ArticleService.getArticleDetail(articleId);
+
+        if (!article) {
+            throw new NotFoundError('文章不存在');
+        }
+
+        // 3. 检查文章内容
+        if (!article.content || article.content.trim().length === 0) {
+            throw new BadRequestError('文章内容为空，无法生成评论');
+        }
+
+        // 4. 生成评论并返回数组
+        try {
+            // 限制内容长度
+            const maxLength = 4000;
+            const truncatedContent = article.content.length > maxLength
+                ? article.content.substring(0, maxLength) + '...'
+                : article.content;
+
+            // 调用 Deepseek API
+            const response = await axios({
+                method: 'POST',
+                url: `${config.deepseek.apiUrl}/chat/completions`,
+                data: {
+                    model: 'deepseek-chat',
+                    messages: [
+                        {
+                            role: 'system',
+                            content: `你是一个热情、专业的博客读者。请仔细阅读用户的文章，并生成5条风格不同、内容相关的评论供用户选择。
+要求：
+1. 每条评论长度在20-100字之间
+2. 角度可以包括：赞同观点、提出有价值的问题、分享个人相关经验、对文章细节的补充等
+3. 语言风格自然、真诚，像真实用户的留言
+4. 必须严格返回 JSON 格式，格式如下：
+{
+  "comments": [
+    "评论1",
+    "评论2",
+    "评论3",
+    "评论4",
+    "评论5"
+  ]
+}
+不要包含任何其他的 Markdown 标记或文字说明。`
+                        },
+                        {
+                            role: 'user',
+                            content: `这是我写的文章：\n\n${truncatedContent}\n\n请为我生成5条评论选项。`
+                        }
+                    ],
+                    temperature: 0.8,
+                    max_tokens: 800,
+                    response_format: { type: 'json_object' } // 强制返回 JSON 对象
+                },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${config.deepseek.apiKey}`
+                }
+            });
+
+            const content = response.data.choices[0].message.content;
+            try {
+                // 尝试解析 JSON
+                const parsed = JSON.parse(content);
+                return parsed.comments || [];
+            } catch (e) {
+                // 如果解析失败，尝试清理可能的 markdown 代码块再解析
+                const cleaned = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+                const parsed = JSON.parse(cleaned);
+                return parsed.comments || [];
+            }
+        } catch (error: any) {
+            throw error;
+        }
     }
 }

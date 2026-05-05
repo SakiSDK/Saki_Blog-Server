@@ -9,7 +9,6 @@ export class AlbumController {
    */
   public static async createAlbum(req: Request, res: Response) {
     try {
-      console.log(req.body);
       const { name, title, description, status } = req.body;
       const album = await AlbumService.createAlbum({
         name, title, description, status
@@ -96,7 +95,6 @@ export class AlbumController {
     try {
       const { id } = req.params;
       const { name, title, description, priority, coverPhotoId, status } = req.body;
-      console.log(req.body);
       const album = await AlbumService.updateAlbum(Number(id), {
         name, title, description, priority, status, coverPhotoId
       });

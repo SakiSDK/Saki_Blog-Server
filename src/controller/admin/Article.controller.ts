@@ -57,7 +57,6 @@ export class ArticleController {
         allowComment,
       } = req.body;
 
-      console.log('priority type:', typeof priority);
 
       // 确保 imagePaths 是数组类型
       let normalizeRawImageUrls: string[] = [];
@@ -89,8 +88,6 @@ export class ArticleController {
       const tempCoverPath = ImageService.normalizeImagePath(rawCoverPath);
       const tempImagePaths = ImageService.normalizeImagePaths(normalizeRawImageUrls);
 
-      console.log('tempCoverPath:', tempCoverPath);
-      console.log('tempImagePaths:', tempImagePaths);
 
       // 验证封面图是否存在
       if (tempCoverPath) {
@@ -270,7 +267,6 @@ export class ArticleController {
     try {
       const query = req.query;
       const result = await ArticleService.searchArticles(query as any);
-      console.log("result: ", result.list);
       res.status(200).json({
         code: 200,
         message: '文章搜索成功',

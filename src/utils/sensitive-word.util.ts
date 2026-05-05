@@ -40,7 +40,9 @@ export class SensitiveWordFilter {
    */
   static hasSensitiveWords(text: string): boolean {
     if (!text) return false;
-    return mint.verify(text);
+    // mint.verify 返回 true 表示验证通过（没有敏感词），返回 false 表示验证失败（包含敏感词）
+    // 因此包含敏感词应该返回 !mint.verify(text)
+    return !mint.verify(text);
   }
 
   /**
