@@ -5,7 +5,8 @@ import { CommentController } from '@/controller/web/Comment.controller'
 import { authenticateToken } from '@/middlewares/auth.middleware'
 import { zodValidate } from '@/middlewares/zodValidate'
 import { 
-  ArticleListQuerySchema, ArticleSearchQuerySchema, ArticleShortIdParamSchema 
+  ArticleListQuerySchema, ArticleSearchQuerySchema, ArticleShortIdParamSchema, 
+  ArticleTimelineListQuerySchema
 } from '@/schemas/article/article.web'
 import { CommentCreateBodySchema, CommentIdParamSchema, CommentListQuerySchema } from '@/schemas/comment/comment.web.schema'
 
@@ -38,7 +39,9 @@ router.get('/latest', ArticleController.getLatestArticles)
  * @description: 获取时间线文章列表
  * @route GET /web/article/timeline
  */
-router.get('/timeline', ArticleController.getArticleTimeline)
+router.get('/timeline', zodValidate({
+  query: ArticleTimelineListQuerySchema,
+}), ArticleController.getArticleTimeline)
 
 /** 
  * @description: 获取随机文章

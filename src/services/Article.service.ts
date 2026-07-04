@@ -1,3 +1,4 @@
+import { ArticleTimelineListQueryVo } from './../schemas/article/article.web';
 import { resolveId } from '@/utils/id.util';
 import { createShortIdCodec } from '@/utils/shortId.codec';
 import { Op, Transaction } from 'sequelize';
@@ -91,6 +92,23 @@ export interface ArticleDetail extends ArticleAttributes {
 export interface ArticleWithTagsAndCategories extends ArticleAttributes {
   tags?: Tag[];
   categories?: Category[];
+}
+
+export interface ArticleTimelineItem extends Pick<ArticleBriefVo, 'shortId' | 'title' | 'tags' | 'categories' | 'cover' | 'createdAt'> {
+  /** 文章简介 */
+  description: string | null;
+  /** 文章创建于当月的几号 */
+  day: number;
+}
+
+export interface ArticleTimelineMonthGroup {
+  month: number;
+  articles: ArticleTimelineItem[];
+}
+
+export interface ArticleTimelineYearGroup {
+  year: number;
+  months: ArticleTimelineMonthGroup[];
 }
 
 /** ---------- 主服务类 ---------- */
@@ -556,10 +574,28 @@ export class ArticleService {
     const pageSize = Number(query.pageSize) || 6;
     const offset = (page - 1) * pageSize;
     
+    // 如果有 tagId，则使用子查询过滤包含该 tagId 的文章
+    const articleIdsWithTag = query.tagId ? await ArticleTag.findAll({
+      where: { tagId: query.tagId },
+      attributes: ['postId']
+    }).then(res => res.map(r => r.postId)) : null;
+
+    const where: any = {
+      status: 'published',
+    };
+    if (articleIdsWithTag !== null) {
+      if (articleIdsWithTag.length === 0) {
+        // 如果该标签下没有文章，直接返回空
+        return {
+          list: [],
+          pagination: { page, pageSize, total: 0, totalPages: 0 }
+        };
+      }
+      where.id = { [Op.in]: articleIdsWithTag };
+    }
+
     const {count, rows} = await Article.findAndCountAll({
-      where: {
-        status: 'published',
-      },
+      where,
       distinct: true,
       order: [['createdAt', 'DESC']],
       offset,
@@ -1020,32 +1056,70 @@ export class ArticleService {
    * @description 根据年份、月份分类，返回类似: [{ year: 2024, months: [{ month: 4, articles: [...] }] }] 的嵌套结构
    * @returns 分组后的时间线文章列表
    */
-  public static async getArticleTimeline(): Promise<any[]> {
+  public static async getArticleTimeline(query: Partial<ArticleTimelineListQueryVo>): Promise<ArticleTimelineYearGroup[]> {
+    const page = Number(query.page) || 1;
+    const pageSize = Number(query.pageSize) || 10;
+    const offset = (page - 1) * pageSize;
+
     // 1. 查询所有已发布的文章，按创建时间降序排列
     const articles = await Article.findAll({
       where: { status: 'published' },
-      attributes: ['shortId', 'title', 'createdAt'],
+      attributes: ['shortId', 'title', 'description', 'coverPath', 'createdAt'],
       order: [['createdAt', 'DESC']],
+      offset,
+      include: [
+        {
+          model: Category,
+          as: 'categories',
+          attributes: ['id', 'name', 'slug'],
+          through: { attributes: [] }
+        },
+        {
+          model: Tag,
+          as: 'tags',
+          attributes: ['id', 'name', 'slug'],
+          through: { attributes: [] }
+        },
+      ]
     });
     
-    const timelineMap = new Map<number, Map<number, any[]>>();
+    const timelineMap = new Map<number, Map<number, ArticleTimelineItem[]>>();
+    const articleItems = await Promise.all(
+      articles.map(async (article) => {
+        const plainArticle = article.get({ plain: true }) as ArticleWithTagsAndCategories & {
+          shortId: string;
+          title: string;
+          description: string | null;
+          coverPath: string | null;
+          createdAt: Date;
+        };
+        const date = new Date(plainArticle.createdAt);
+        const day = date.getDate();
+        const cover = plainArticle.coverPath
+          ? ImageService.getOriginUrl(plainArticle.coverPath)
+          : null;
 
-    for (const article of articles) {
-      const date = new Date(article.createdAt);
-      const year = date.getFullYear();
-      const month = date.getMonth() + 1; // 1-12月
-      const day = date.getDate(); // 1-31日
+        return {
+          year: date.getFullYear(),
+          month: date.getMonth() + 1,
+          articleItem: {
+            shortId: plainArticle.shortId,
+            title: plainArticle.title,
+            description: plainArticle.description,
+            tags: plainArticle.tags ?? [],
+            categories: plainArticle.categories ?? [],
+            cover,
+            createdAt: plainArticle.createdAt,
+            day,
+          } satisfies ArticleTimelineItem,
+        };
+      })
+    );
 
-      const articleItem = {
-        shortId: article.shortId,
-        title: article.title,
-        createdAt: article.createdAt,
-        day: day, // 增加“几号”的属性
-      };
-
+    for (const { year, month, articleItem } of articleItems) {
       // 处理年份
       if (!timelineMap.has(year)) {
-        timelineMap.set(year, new Map<number, any[]>());
+        timelineMap.set(year, new Map<number, ArticleTimelineItem[]>());
       }
       
       const monthMap = timelineMap.get(year)!;
@@ -1059,7 +1133,7 @@ export class ArticleService {
     }
 
     // 3. 将 Map 转换为数组结构，并保证按年份降序、月份降序
-    const timeline: any[] = [];
+    const timeline: ArticleTimelineYearGroup[] = [];
     
     // 遍历年份（Map的遍历顺序是插入顺序，我们需要手动排序或者用数组sort）
     const sortedYears = Array.from(timelineMap.keys()).sort((a, b) => b - a);
@@ -1068,11 +1142,11 @@ export class ArticleService {
       const monthMap = timelineMap.get(year)!;
       const sortedMonths = Array.from(monthMap.keys()).sort((a, b) => b - a);
       
-      const monthsArray = [];
+      const monthsArray: ArticleTimelineMonthGroup[] = [];
       for (const month of sortedMonths) {
         monthsArray.push({
           month,
-          articles: monthMap.get(month),
+          articles: monthMap.get(month) ?? [],
         });
       }
       

@@ -45,6 +45,13 @@ export const ArticleShortIdParamSchema = z.object({
 export const ArticleListQuerySchema = z.object({
   page: zPageNum,
   pageSize: zPageSize,
+  tagId: z.coerce.number().int().optional().describe("标签ID"),
+})
+
+/** 获取文章时间线列表参数 */
+export const ArticleTimelineListQuerySchema = z.object({
+  page: zPageNum,
+  pageSize: zPageSize,
 })
 
 /** 文章搜索参数 */
@@ -69,3 +76,5 @@ export type ArticleRecentVo = z.infer<typeof ArticleRecentSchema>
 export type ArticleListQueryVo = z.infer<typeof ArticleListQuerySchema>
 /** 文章搜索请求参数类型 */
 export type ArticleSearchQueryVo = z.infer<typeof ArticleSearchQuerySchema>
+/** 文章时间线请求参数类型 */
+export type ArticleTimelineListQueryVo = z.infer<typeof ArticleTimelineListQuerySchema>

@@ -144,7 +144,8 @@ export class ArticleController {
 
   public static async getArticleTimeline(req: Request, res: Response) {
     try {
-      const articles = await ArticleService.getArticleTimeline();
+      const query = req.query;
+      const articles = await ArticleService.getArticleTimeline(query);
       res.status(200).json({
         code: 200,
         message: '时间线文章列表获取成功',
